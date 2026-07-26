@@ -1,0 +1,52 @@
+{
+  "nd_system": {
+    "id": "palladium-coupling",
+    "namespace": "chemistry.pd-coupling",
+    "version": "1.0.0",
+    "federation_5d_version": "1",
+    "axes": {
+      "reaction_family": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["suzuki", "heck", "sonogashira"],
+        "primitives": ["equal"]
+      },
+      "substrate": {
+        "value_type": "entity_reference",
+        "cardinality": "many",
+        "vocabulary_mode": "open",
+        "primitives": ["equal"]
+      },
+      "catalyst": {
+        "value_type": "entity_reference",
+        "cardinality": "many",
+        "vocabulary_mode": "open",
+        "primitives": ["equal"]
+      },
+      "temperature": {
+        "value_type": "quantity",
+        "unit": "degC",
+        "cardinality": "one",
+        "primitives": ["equal", "precedes"]
+      },
+      "observed_yield": {
+        "value_type": "quantity",
+        "unit": "percent",
+        "range": [0, 100],
+        "cardinality": "one",
+        "primitives": ["equal", "precedes"]
+      },
+      "atmosphere": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["air", "nitrogen", "argon", "oxygen"],
+        "primitives": ["equal", "disjoint"]
+      }
+    },
+    "validation": {
+      "unknown_values": "reject",
+      "missing_coordinates": "preserve_unknown",
+      "provenance_required": true
+    }
+  }
+}

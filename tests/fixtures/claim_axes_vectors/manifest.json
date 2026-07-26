@@ -1,0 +1,22 @@
+{
+  "companion": "claim-axes",
+  "version": "1",
+  "kind": "wire-record",
+  "describes": "Shared wire-record vectors for the claim-axes structural schema (COMPANION.md, Conformance).",
+  "vectors": [
+    "valid-empty-axes.json",
+    "valid-five-axes.json",
+    "valid-partial-axes.json",
+    "valid-max-length-value.json",
+    "invalid-missing-axes.json",
+    "invalid-axes-not-object.json",
+    "invalid-unknown-axis.json",
+    "invalid-unknown-top-level-key.json",
+    "invalid-nonstring-value.json",
+    "invalid-empty-value.json",
+    "invalid-blank-value.json",
+    "invalid-oversize-value.json",
+    "invalid-wrong-schema.json",
+    "invalid-missing-schema.json"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "nd_system": {
+    "id": "constrained-optimization",
+    "namespace": "math.optimization",
+    "version": "1.0.0",
+    "federation_5d_version": "1",
+    "axes": {
+      "variable_space": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["real", "integer", "binary", "complex"],
+        "primitives": ["equal"]
+      },
+      "dimensionality": {
+        "value_type": "non_negative_integer",
+        "cardinality": "one",
+        "primitives": ["equal", "precedes"]
+      },
+      "objective_shape": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["linear", "quadratic", "convex", "nonconvex"],
+        "primitives": ["equal", "contains"]
+      },
+      "constraint_class": {
+        "value_type": "controlled_identifier",
+        "cardinality": "many",
+        "vocabulary": ["equality", "inequality", "linear", "nonlinear", "convex", "combinatorial"],
+        "primitives": ["equal", "contains", "overlaps", "disjoint"]
+      },
+      "solution_status": {
+        "value_type": "controlled_identifier",
+        "cardinality": "many",
+        "vocabulary": ["feasible", "infeasible", "bounded", "unbounded", "unique", "nonunique"],
+        "primitives": ["equal", "disjoint"]
+      }
+    },
+    "bindings": [
+      {
+        "form_slot": "quantification.range",
+        "allowed_axes": ["variable_space", "dimensionality"]
+      }
+    ],
+    "validation": {
+      "unknown_values": "reject",
+      "missing_coordinates": "preserve_unknown",
+      "provenance_required": true
+    }
+  }
+}

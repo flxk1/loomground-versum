@@ -1,0 +1,11 @@
+{
+  "name": "invalid-axes-not-object",
+  "valid": false,
+  "description": "axes must be an object, not a list",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": [
+      "predicate"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Chat with Knowledge Graph"
+  short_description: "Answer questions from the knowledge graph"
+  default_prompt: "Use $loomground-kg-chat to answer this from the knowledge graph."

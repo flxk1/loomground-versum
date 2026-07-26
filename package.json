@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "name": "loomground-versum",
+  "version": "0.6.4",
+  "description": "Loomground's human-gated knowledge-graph write path, concept-neighbour organiser, mental-model engine, and the research→graph enrichment loop, plus the read-only KG cockpit and conversational query surface over the graph.",
+  "author": {
+    "name": "Loomground Contributors"
+  },
+  "keywords": [
+    "chat",
+    "conceptgraph",
+    "enrichment",
+    "knowledge-graph",
+    "local-first",
+    "mental-model",
+    "organise",
+    "provenance",
+    "query",
+    "versum"
+  ],
+  "skills": [
+    {
+      "name": "loomground-knowledge-write",
+      "path": "skills/loomground-knowledge-write",
+      "provides": [
+        "knowledge.capture"
+      ]
+    },
+    {
+      "name": "loomground-organise",
+      "path": "skills/loomground-organise",
+      "provides": [
+        "knowledge.organise"
+      ]
+    },
+    {
+      "name": "loomground-mental-model",
+      "path": "skills/loomground-mental-model",
+      "provides": [
+        "knowledge.mental-model"
+      ]
+    },
+    {
+      "name": "loomground-enrich",
+      "path": "skills/loomground-enrich",
+      "provides": [
+        "knowledge.enrich"
+      ]
+    },
+    {
+      "name": "loomground-kg",
+      "path": "skills/loomground-kg",
+      "provides": [
+        "knowledge.query"
+      ]
+    },
+    {
+      "name": "loomground-kg-chat",
+      "path": "skills/loomground-kg-chat",
+      "provides": [
+        "knowledge.chat"
+      ]
+    },
+    {
+      "name": "loomground-curate",
+      "path": "skills/loomground-curate",
+      "provides": [
+        "knowledge.curate"
+      ]
+    }
+  ],
+  "capabilities": {
+    "knowledge.capture": {
+      "mode": "write",
+      "humanConfirmation": true
+    },
+    "knowledge.organise": {
+      "mode": "read-write",
+      "humanConfirmation": true
+    },
+    "knowledge.mental-model": {
+      "mode": "read-write",
+      "humanConfirmation": true
+    },
+    "knowledge.enrich": {
+      "mode": "read-write",
+      "humanConfirmation": true
+    },
+    "knowledge.query": {
+      "mode": "read",
+      "humanConfirmation": false
+    },
+    "knowledge.chat": {
+      "mode": "read",
+      "humanConfirmation": false
+    },
+    "knowledge.curate": {
+      "mode": "read-write",
+      "humanConfirmation": true
+    }
+  },
+  "runtime": {
+    "python": ">=3.10",
+    "network": false,
+    "config": [
+      "skills/loomground-kg/config.example.json",
+      "skills/loomground-organise/organise.config.example.json"
+    ],
+    "requires": [
+      "versum"
+    ]
+  },
+  "adapters": {
+    "claude": {
+      "marketplaceSource": {
+        "source": "url",
+        "url": "https://github.com/flxk1/loomground-versum.git"
+      }
+    },
+    "codex": {
+      "interface": {
+        "displayName": "Loomground Versum",
+        "shortDescription": "Capture, organise, model, and enrich a human-gated knowledge graph",
+        "longDescription": "Admit sources through one provenance-safe write path, organise documents by shared mental models, turn any content into a grounded ConceptGraph you can project to slides, checklists, diagrams and schema, and grow the graph from research findings — all with human confirmation before anything is written.",
+        "developerName": "Loomground Contributors",
+        "category": "Productivity",
+        "capabilities": [
+          "Knowledge graph",
+          "Local-first",
+          "Mental models",
+          "Enrichment",
+          "Write with confirmation",
+          "Knowledge graph queries",
+          "Conversational KG chat",
+          "Read-only",
+          "Concept-layer curation"
+        ],
+        "defaultPrompt": [
+          "Add this source to my Versum graph.",
+          "Where should this document be organised?",
+          "Build a mental model of this and show me the key concepts.",
+          "Add what we learned in this session to the graph.",
+          "Show the status of my Versum graph.",
+          "Which sources support this concept?",
+          "Curate the concept layer of my Versum graph."
+        ]
+      }
+    },
+    "generic": {}
+  }
+}

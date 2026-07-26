@@ -1,0 +1,4 @@
+interface:
+  display_name: "Loomground KG"
+  short_description: "Cockpit over the Versum knowledge graph"
+  default_prompt: "Use $loomground-kg to check the KG status, query sources, or route work to the right skill."

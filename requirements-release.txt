@@ -1,0 +1,3 @@
+# SPDX-License-Identifier: Apache-2.0
+# Exact resolution of the external runtime dependency declared by pyproject.toml.
+pdfplumber==0.11.10
