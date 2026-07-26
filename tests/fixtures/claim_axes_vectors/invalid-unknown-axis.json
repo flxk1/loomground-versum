@@ -1,0 +1,11 @@
+{
+  "name": "invalid-unknown-axis",
+  "valid": false,
+  "description": "a sixth axis key is out of bounds",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": {
+      "certainty": "high"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "invalid-wrong-schema",
+  "valid": false,
+  "description": "another schema id does not decode under this companion",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v2",
+    "axes": {}
+  }
+}

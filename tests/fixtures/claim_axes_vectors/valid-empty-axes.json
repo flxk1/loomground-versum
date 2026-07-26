@@ -1,0 +1,9 @@
+{
+  "name": "valid-empty-axes",
+  "valid": true,
+  "description": "the empty axes object is valid",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": {}
+  }
+}

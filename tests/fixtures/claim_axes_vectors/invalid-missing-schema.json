@@ -1,0 +1,8 @@
+{
+  "name": "invalid-missing-schema",
+  "valid": false,
+  "description": "the schema member is required",
+  "record": {
+    "axes": {}
+  }
+}

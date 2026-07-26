@@ -1,0 +1,15 @@
+{
+  "name": "valid-five-axes",
+  "valid": true,
+  "description": "all five recognized axes present",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": {
+      "predicate": "causes",
+      "modality": "asserted",
+      "polarity": "D",
+      "quantification": "universal",
+      "domain": "law"
+    }
+  }
+}

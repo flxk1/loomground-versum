@@ -1,0 +1,4 @@
+interface:
+  display_name: "Enrich Graph"
+  short_description: "Grow the graph from research findings"
+  default_prompt: "Use $loomground-enrich to add what we learned in this session to the graph."

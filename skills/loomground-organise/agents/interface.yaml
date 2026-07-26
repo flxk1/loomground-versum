@@ -1,0 +1,4 @@
+interface:
+  display_name: "Organise"
+  short_description: "Place documents by shared mental models"
+  default_prompt: "Use $loomground-organise to triage the review queue or suggest where a document belongs."

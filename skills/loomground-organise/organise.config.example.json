@@ -1,0 +1,17 @@
+{
+  "effort": {
+    "mode": "cascade",
+    "allow_cloud": false,
+    "local_available": true,
+    "dominance": 0.5,
+    "min_signal": 0.02
+  },
+  "_doc": {
+    "mode": "cascade = cheapest sufficient tier by evidence; cloud = LLM drafts every placement; local = local model every placement; deterministic = no model, suggestion straight to a person",
+    "allow_cloud": "cascade only: may escalate to the cloud model (a privacy/cost opt-in). Ignored when mode is an explicit tier.",
+    "local_available": "whether a local model is wired; when false, cascade falls back to cloud (if allowed) or review",
+    "dominance": "cascade tuning: top-1 must lead top-2 by this fraction of top-1 to be 'one clear domain' (regex tier)",
+    "min_signal": "cascade tuning: overlap below this is treated as no real signal (novel → cloud/review)",
+    "note": "This example lives with the skill (code side). The REAL file is user data — keep it in the Knowledge workspace, not in the engine repo."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "invalid-empty-value",
+  "valid": false,
+  "description": "the empty string is not a value",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": {
+      "modality": ""
+    }
+  }
+}

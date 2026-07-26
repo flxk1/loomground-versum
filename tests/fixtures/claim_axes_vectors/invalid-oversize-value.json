@@ -1,0 +1,11 @@
+{
+  "name": "invalid-oversize-value",
+  "valid": false,
+  "description": "257 characters exceeds the bound",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": {
+      "domain": "ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  }
+}

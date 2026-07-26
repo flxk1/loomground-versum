@@ -1,0 +1,8 @@
+# Concrete development and CI resolution of the abstract ranges in
+# pyproject.toml. Kept out of package metadata so the built distribution stays
+# index-clean. Install this before `pip install .` so the ranges are already
+# satisfied and pip never needs an index for the sibling packages.
+# Immutable release commits: governance v0.8.2 and deontic v0.1.2.
+loomground-governance @ git+https://github.com/flxk1/loomground-governance@20b8f38e140e5e725221e462a05efcaacc05bf6d
+loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@10f1c936cb79a7503f9e94db22dd7efe34bd3ce3
+pytest==9.1.1
