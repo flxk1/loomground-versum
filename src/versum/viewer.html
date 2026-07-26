@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Versum graph</title>
+<style>
+  :root { color-scheme: light dark;
+    --bg:#fafafa; --fg:#1a1a1a; --muted:#777; --panel:#fff; --line:#ddd; --chipbg:#eee; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181d; --fg:#e8e8e8; --muted:#9a9a9a; --panel:#1f2229; --line:#333; --chipbg:#2a2e37; } }
+  * { box-sizing:border-box; margin:0; }
+  body { font:14px/1.45 system-ui,sans-serif; background:var(--bg); color:var(--fg);
+         display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+  header { display:flex; gap:.75rem; align-items:center; flex-wrap:wrap;
+           padding:.5rem .75rem; border-bottom:1px solid var(--line); }
+  header h1 { font-size:1rem; }
+  header .counts { color:var(--muted); font-size:.8rem; }
+  #search { padding:.3rem .5rem; border:1px solid var(--line); border-radius:6px;
+            background:var(--panel); color:var(--fg); min-width:14rem; }
+  #chips { display:flex; gap:.35rem; flex-wrap:wrap; padding:.4rem .75rem;
+           border-bottom:1px solid var(--line); }
+  .facet { display:flex; gap:.25rem; align-items:center; flex-wrap:wrap; margin-right:.6rem; }
+  .facet b { font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .chip { font-size:.78rem; padding:.15rem .55rem; border-radius:999px; cursor:pointer;
+          background:var(--chipbg); border:1px solid transparent; user-select:none; }
+  .chip.off { opacity:.35; }
+  .chip .sw { display:inline-block; width:.6em; height:.6em; border-radius:2px; margin-right:.3em; }
+  #main { flex:1; display:flex; min-height:0; position:relative; }
+  #canvas { flex:1; display:block; cursor:grab; }
+  /* floating node card — eyebrow / title / body / labelled blocks / action row */
+  #card { position:absolute; width:26rem; max-width:86vw; max-height:76vh;
+          overflow-y:auto; background:var(--panel); border:1px solid var(--line);
+          border-radius:16px; padding:1.4rem 1.5rem 1.2rem; display:none; z-index:5;
+          box-shadow:0 12px 40px rgba(0,0,0,.3); }
+  #card.open { display:block; }
+  #card .x { position:absolute; top:.7rem; right:.95rem; cursor:pointer;
+             color:var(--muted); font-size:1.4rem; line-height:1; }
+  #card .x:hover { color:var(--fg); }
+  .eyebrow { font-size:.8rem; letter-spacing:.16em; text-transform:uppercase;
+             color:var(--muted); }
+  #card h2 { font-size:1.75rem; font-weight:800; margin:.3rem 0 .6rem;
+             overflow-wrap:anywhere; line-height:1.2; }
+  #card .body { font-size:1.02rem; line-height:1.55; white-space:pre-wrap;
+                overflow-wrap:anywhere; }
+  #card .block { border-top:1px solid var(--line); margin-top:.95rem; padding-top:.75rem; }
+  #card .block .bval { font-size:1.05rem; font-weight:600; overflow-wrap:anywhere;
+                       margin-top:.2rem; }
+  #card .block .bmeta { color:var(--muted); font-size:.85rem; margin-top:.15rem; }
+  #card .actions { display:flex; gap:1.3rem; flex-wrap:wrap; margin-top:1.1rem; }
+  #card .actions a { text-transform:uppercase; letter-spacing:.12em; font-size:.85rem;
+                     font-weight:700; color:inherit; cursor:pointer;
+                     text-decoration:underline; text-underline-offset:4px; }
+  #card .neigh a { display:block; color:inherit; cursor:pointer; text-decoration:none;
+                   padding:.18rem 0; font-size:.95rem; overflow-wrap:anywhere; }
+  #card .neigh a:hover { text-decoration:underline; }
+  #card .etype { color:var(--muted); font-size:.8rem; }
+  #hint { position:fixed; bottom:.5rem; left:.75rem; color:var(--muted); font-size:.75rem; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Versum graph</h1>
+  <span class="counts" id="counts"></span>
+  <input id="search" type="search" placeholder="search nodes… (Enter to focus)">
+</header>
+<div id="chips"></div>
+<div id="main">
+  <canvas id="canvas"></canvas>
+  <aside id="card"></aside>
+</div>
+<div id="hint">drag: move · wheel: zoom · click: details · double-click: ego focus · Esc: reset</div>
+<script>
+"use strict";
+const P = __VERSUM_PAYLOAD__;
+if (P.version !== "versum_graph/v1")
+  document.body.textContent = "payload version mismatch: " + P.version;
+
+/* ── palette ─────────────────────────────────────────── */
+const DIM_COLORS = { structural:"#4c78a8", causal:"#e45756", intentional:"#9d6bce",
+                     temporal:"#f58518", relational:"#72b7b2" };
+const KIND_FILL = { source:"#8a8f98", claim:null, concept:"#e2b93d" };
+const POLARITY = { D:"#4c78a8", N:"#e45756" };   // descriptive / normative
+const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+
+/* ── state ───────────────────────────────────────────── */
+const nodes = P.nodes.map(n => ({...n, x:0, y:0, vx:0, vy:0}));
+const byId = new Map(nodes.map(n => [n.id, n]));
+const edges = P.edges.filter(e => byId.has(e.src) && byId.has(e.dst));
+const adj = new Map(nodes.map(n => [n.id, []]));
+for (const e of edges) { adj.get(e.src).push(e); adj.get(e.dst).push(e); }
+const deg = id => adj.get(id).length;
+const active = {};            // facet -> Set(off values)
+for (const f in P.facets) active[f] = new Set();
+let focusSet = null, selected = null, query = "";
+
+/* ── facet chips (built from payload.facets only) ────── */
+const chipsEl = document.getElementById("chips");
+const FACET_OF_NODE = { kind: n => n.kind };
+function chipColor(facet, v) {
+  if (facet === "dimension") return DIM_COLORS[v] || null;
+  return null;
+}
+for (const facet in P.facets) {
+  const wrap = document.createElement("span"); wrap.className = "facet";
+  const b = document.createElement("b"); b.textContent = facet.replace("_"," ");
+  wrap.appendChild(b);
+  for (const v of P.facets[facet]) {
+    const c = document.createElement("span"); c.className = "chip";
+    const col = chipColor(facet, v);
+    if (col) { const sw = document.createElement("span"); sw.className = "sw";
+               sw.style.background = col; c.appendChild(sw); }
+    c.appendChild(document.createTextNode(v));
+    c.onclick = () => { active[facet].has(v) ? active[facet].delete(v)
+                                             : active[facet].add(v);
+                        c.classList.toggle("off"); draw(); };
+    wrap.appendChild(c);
+  }
+  chipsEl.appendChild(wrap);
+}
+
+function nodeVisible(n) {
+  if (active.kind && active.kind.has(n.kind)) return false;
+  if (focusSet && !focusSet.has(n.id)) return false;
+  if (query && !(n.label + " " + n.id).toLowerCase().includes(query)) {}
+  return true;
+}
+function edgeVisible(e) {
+  for (const f of ["edge_type","dimension","verification","edge_family"])
+    if (active[f] && e[f] && active[f].has(e[f])) return false;
+  return nodeVisible(byId.get(e.src)) && nodeVisible(byId.get(e.dst));
+}
+
+/* ── layout: simple force simulation ─────────────────── */
+const R = Math.sqrt(nodes.length) * 60 + 100;
+nodes.forEach((n, i) => { const a = i * 2.399963;      // golden angle spiral
+  const r = R * Math.sqrt((i + .5) / nodes.length);
+  n.x = r * Math.cos(a); n.y = r * Math.sin(a); });
+function step(alpha) {
+  for (const e of edges) {                              // springs
+    const a = byId.get(e.src), b = byId.get(e.dst);
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const d = Math.hypot(dx, dy) || 1, want = 90;
+    const f = alpha * (d - want) / d * .05;
+    a.x += dx * f; a.y += dy * f; b.x -= dx * f; b.y -= dy * f;
+  }
+  const grid = new Map();                               // approximate repulsion via grid
+  const CELL = 120;
+  for (const n of nodes) {
+    const k = ((n.x / CELL) | 0) + ":" + ((n.y / CELL) | 0);
+    (grid.get(k) || grid.set(k, []).get(k)).push(n);
+  }
+  for (const n of nodes) {
+    const cx = (n.x / CELL) | 0, cy = (n.y / CELL) | 0;
+    for (let gx = cx - 1; gx <= cx + 1; gx++)
+      for (let gy = cy - 1; gy <= cy + 1; gy++) {
+        const cell = grid.get(gx + ":" + gy); if (!cell) continue;
+        for (const m of cell) { if (m === n) continue;
+          let dx = n.x - m.x, dy = n.y - m.y;
+          let d2 = dx * dx + dy * dy;
+          if (d2 < 1) { dx = Math.random() - .5; dy = Math.random() - .5; d2 = 1; }
+          if (d2 > CELL * CELL * 4) continue;
+          const f = alpha * 1800 / d2;
+          n.x += dx * f; n.y += dy * f;
+        }
+      }
+    n.x -= n.x * alpha * .003; n.y -= n.y * alpha * .003;   // gentle centering
+  }
+}
+let alpha = 1;
+function settle() { for (let i = 0; i < 3; i++) step(alpha);
+  alpha *= .985; draw();
+  if (alpha > .02) requestAnimationFrame(settle); }
+
+/* ── rendering ───────────────────────────────────────── */
+const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+let tx = 0, ty = 0, scale = 1;
+function resize() { const r = canvas.parentElement.getBoundingClientRect();
+  canvas.width = r.width * devicePixelRatio;
+  canvas.height = (innerHeight - canvas.getBoundingClientRect().top) * devicePixelRatio;
+  canvas.style.height = (innerHeight - canvas.getBoundingClientRect().top) + "px";
+  tx = tx || canvas.width / 2; ty = ty || canvas.height / 2; draw(); }
+addEventListener("resize", resize);
+
+function nodeRadius(n) { return n.kind === "concept" ? 8 + Math.min(10, deg(n.id)) :
+                                n.kind === "source" ? 7 : 3.5; }
+function nodeColor(n) {
+  if (n.kind === "claim")
+    return POLARITY[n.attrs.polarity] || (dark ? "#666" : "#aaa");
+  return KIND_FILL[n.kind];
+}
+function draw() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.setTransform(scale, 0, 0, scale, tx, ty);
+  const q = query;
+  for (const e of edges) {                               // edges first
+    if (!edgeVisible(e)) continue;
+    const a = byId.get(e.src), b = byId.get(e.dst);
+    ctx.strokeStyle = e.edge_family === "provenance"
+      ? (dark ? "#3a3f4a" : "#dcdcdc")
+      : (DIM_COLORS[e.dimension] || (dark ? "#556" : "#bbb"));
+    ctx.globalAlpha = e.edge_family === "provenance" ? .7 : .9;
+    ctx.lineWidth = (e.edge_family === "provenance" ? .6 : 1.4) / scale;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  for (const n of nodes) {
+    if (!nodeVisible(n)) continue;
+    const r = nodeRadius(n), match = q && (n.label + " " + n.id).toLowerCase().includes(q);
+    ctx.beginPath();
+    if (n.kind === "source") ctx.rect(n.x - r, n.y - r, 2 * r, 2 * r);
+    else ctx.arc(n.x, n.y, r, 0, 7);
+    ctx.fillStyle = nodeColor(n);
+    ctx.globalAlpha = q ? (match ? 1 : .18) : 1;
+    ctx.fill();
+    if (n === selected) { ctx.lineWidth = 2.5 / scale; ctx.strokeStyle = dark ? "#fff" : "#000";
+                          ctx.stroke(); }
+    if (n.kind !== "claim" && scale > .45) {
+      ctx.fillStyle = dark ? "#e8e8e8" : "#1a1a1a";
+      ctx.font = (11 / scale) + "px system-ui";
+      ctx.fillText(n.label.slice(0, 34), n.x + r + 3 / scale, n.y + 3 / scale);
+    }
+  }
+  ctx.globalAlpha = 1;
+  placeCard();          // the card stays anchored to its node through pan/zoom
+}
+
+/* ── interaction ─────────────────────────────────────── */
+function pick(mx, my) {
+  const x = (mx * devicePixelRatio - tx) / scale, y = (my * devicePixelRatio - ty) / scale;
+  let best = null, bd = 12 / scale;
+  for (const n of nodes) { if (!nodeVisible(n)) continue;
+    const d = Math.hypot(n.x - x, n.y - y) - nodeRadius(n);
+    if (d < bd) { bd = d; best = n; } }
+  return best;
+}
+let drag = null, panning = false, px = 0, py = 0;
+canvas.onmousedown = e => { const n = pick(e.offsetX, e.offsetY);
+  if (n) drag = n; else { panning = true; } px = e.offsetX; py = e.offsetY; };
+canvas.onmousemove = e => {
+  if (drag) { drag.x += (e.offsetX - px) * devicePixelRatio / scale;
+              drag.y += (e.offsetY - py) * devicePixelRatio / scale; draw(); }
+  else if (panning) { tx += (e.offsetX - px) * devicePixelRatio;
+                      ty += (e.offsetY - py) * devicePixelRatio; draw(); }
+  px = e.offsetX; py = e.offsetY; };
+addEventListener("mouseup", () => { drag = null; panning = false; });
+canvas.onwheel = e => { e.preventDefault();
+  const f = Math.exp(-e.deltaY * .0015);
+  const mx = e.offsetX * devicePixelRatio, my = e.offsetY * devicePixelRatio;
+  tx = mx - (mx - tx) * f; ty = my - (my - ty) * f; scale *= f; draw(); };
+canvas.onclick = e => { if (Math.hypot(e.offsetX - px, e.offsetY - py) > 4) return;
+  const n = pick(e.offsetX, e.offsetY); select(n); };
+canvas.ondblclick = e => { const n = pick(e.offsetX, e.offsetY);
+  if (!n) { focusSet = null; draw(); return; }
+  focusSet = new Set([n.id]);
+  for (const ed of adj.get(n.id)) { focusSet.add(ed.src); focusSet.add(ed.dst); }
+  select(n); draw(); };
+addEventListener("keydown", e => { if (e.key === "Escape") {
+  focusSet = null; select(null); draw(); } });
+
+/* ── node card (floats next to the node) ─────────────── */
+const card = document.getElementById("card");
+function esc(s) { return String(s ?? "").replace(/[&<>"]/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtSize(bytes) {
+  const b = Number(bytes);
+  if (!b) return "";
+  return b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(1) + " KB"
+                              : (b / 1048576).toFixed(1) + " MB";
+}
+const POLARITY_NAME = { D: "descriptive", N: "normative" };
+function eyebrow(n) {
+  const parts = [n.kind];
+  if (n.kind === "claim") parts.push(POLARITY_NAME[n.attrs.polarity] || "",
+                                     n.attrs.dimension || "", n.attrs.modality || "");
+  if (n.kind === "source") parts.push(n.attrs.profile || "", n.attrs.provenance || "");
+  if (n.kind === "concept") parts.push(n.attrs.status || "", n.attrs.domain || "");
+  return parts.filter(Boolean).map(esc).join(" · ");
+}
+function fileBlock(n) {
+  // the card offers the underlying document itself: for a source node its own
+  // file, for a claim the file it is anchored in. file:// links resolve only on
+  // the machine the export was made on — no file, no block, no dead link.
+  const src = n.kind === "source" ? n
+            : n.kind === "claim" ? byId.get(n.attrs.source_urn) : null;
+  if (!src || !src.attrs.file_url) return "";
+  const meta = [src.attrs.path, fmtSize(src.attrs.file_size)].filter(Boolean);
+  const span = n.kind === "claim" && n.attrs.span_start !== undefined
+    ? ` · claim at chars ${esc(n.attrs.span_start)}–${esc(n.attrs.span_end)}` : "";
+  return `<div class="block filecard"><div class="eyebrow">document</div>
+    <div class="bval">${esc(src.label)}</div>
+    <div class="bmeta">${esc(meta.join(" · "))}${span}</div></div>`;
+}
+function bodyOf(n) {
+  if (n.kind === "claim") return n.attrs.text || "";
+  if (n.kind === "concept") return n.attrs.definition || "";
+  return "";
+}
+function select(n) {
+  selected = n;
+  if (!n) { card.classList.remove("open"); draw(); return; }
+  const fileUrl = (n.kind === "source" ? n : byId.get(n.attrs.source_urn || ""))
+                    ?.attrs.file_url;
+  let h = `<span class="x" id="cx">✕</span>`;
+  h += `<div class="eyebrow">${eyebrow(n)}</div>`;
+  h += `<h2>${esc(n.kind === "claim" ? (byId.get(n.attrs.source_urn)?.label || n.label)
+                                     : n.label)}</h2>`;
+  const body = bodyOf(n);
+  if (body) h += `<div class="body">${esc(body)}</div>`;
+  h += fileBlock(n);
+  const nb = adj.get(n.id);
+  if (nb.length) {
+    h += `<div class="block neigh"><div class="eyebrow">${nb.length} connection(s)</div>`;
+    for (const ed of nb.slice(0, 12)) {
+      const other = byId.get(ed.src === n.id ? ed.dst : ed.src);
+      h += `<a data-id="${esc(other.id)}"><span class="etype">${esc(ed.edge_type)}
+        ${esc(ed.dimension || "")}</span> ${esc(other.label)}</a>`;
+    }
+    if (nb.length > 12)
+      h += `<div class="etype">… ${nb.length - 12} more</div>`;
+    h += `</div>`;
+  }
+  h += `<div class="actions">`;
+  if (fileUrl) h += `<a href="${esc(fileUrl)}" target="_blank" rel="noopener">Open file</a>`;
+  h += `<a id="cfocus">Focus</a>`;
+  if (n.kind === "claim" && byId.get(n.attrs.source_urn))
+    h += `<a data-id="${esc(n.attrs.source_urn)}">Source</a>`;
+  h += `</div>`;
+  card.innerHTML = h; card.classList.add("open");
+  card.querySelector("#cx").onclick = () => select(null);
+  const cf = card.querySelector("#cfocus");
+  if (cf) cf.onclick = () => { focusSet = new Set([n.id]);
+    for (const ed of adj.get(n.id)) { focusSet.add(ed.src); focusSet.add(ed.dst); }
+    draw(); };
+  card.querySelectorAll("a[data-id]").forEach(a =>
+    a.onclick = () => { const m = byId.get(a.dataset.id); if (m) {
+      tx = canvas.width / 2 - m.x * scale; ty = canvas.height / 2 - m.y * scale;
+      select(m); } });
+  placeCard(); draw();
+}
+function placeCard() {
+  // anchor the card beside the selected node, clamped to the viewport
+  if (!selected || !card.classList.contains("open")) return;
+  const host = document.getElementById("main").getBoundingClientRect();
+  const sx = (selected.x * scale + tx) / devicePixelRatio;
+  const sy = (selected.y * scale + ty) / devicePixelRatio;
+  const r = nodeRadius(selected) * scale / devicePixelRatio;
+  const cw = card.offsetWidth || 336, ch = card.offsetHeight || 200;
+  let left = sx + r + 14, top = sy - 20;
+  if (left + cw > host.width - 8) left = sx - r - 14 - cw;   // flip to the left
+  left = Math.max(8, Math.min(left, host.width - cw - 8));
+  top = Math.max(8, Math.min(top, host.height - ch - 8));
+  card.style.left = left + "px"; card.style.top = top + "px";
+}
+
+/* ── search ──────────────────────────────────────────── */
+const searchEl = document.getElementById("search");
+searchEl.oninput = () => { query = searchEl.value.trim().toLowerCase(); draw(); };
+searchEl.onkeydown = e => { if (e.key !== "Enter" || !query) return;
+  const n = nodes.find(m => nodeVisible(m) &&
+    (m.label + " " + m.id).toLowerCase().includes(query));
+  if (n) { tx = canvas.width / 2 - n.x * scale; ty = canvas.height / 2 - n.y * scale;
+           select(n); } };
+
+/* ── header ──────────────────────────────────────────── */
+document.getElementById("title").textContent = "Versum graph — " + (P.folder || "");
+document.title = "Versum graph — " + (P.folder || "");
+document.getElementById("counts").textContent =
+  `${P.counts.sources} sources · ${P.counts.claims} claims · ` +
+  `${P.counts.concepts} concepts · ${P.counts.edges} edges` +
+  (P.profile ? ` · profile ${P.profile}` : "");
+resize();
+settle();
+</script>
+</body>
+</html>

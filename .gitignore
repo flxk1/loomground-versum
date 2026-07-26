@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.versum/
+*.egg-info/
+build/
+dist/
+outputs/
+.venv/
+venv/
+.DS_Store
+.claude/

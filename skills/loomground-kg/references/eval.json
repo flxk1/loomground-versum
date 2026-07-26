@@ -1,0 +1,9 @@
+{
+  "skill": "loomground-kg",
+  "provides": "knowledge.query",
+  "wraps": "scripts/kg_query.py (read-only, stdlib, no network)",
+  "scripted": true,
+  "fail_closed": true,
+  "provenance": "Authored for loomground; queries the Versum knowledge graph. No third-party skill source.",
+  "notes": "Progressive-disclosure: lean SKILL.md + references/ pair. Config-driven via LOOMGROUND_KG_CONFIG."
+}

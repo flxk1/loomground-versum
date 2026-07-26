@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Write"
+  short_description: "Single write path into the Versum graph"
+  default_prompt: "Use $loomground-knowledge-write to add an approved source to the knowledge graph."

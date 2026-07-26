@@ -1,0 +1,23 @@
+version = 1
+SPDX-PackageName = "loomground-versum"
+SPDX-PackageSupplier = "Organization: Loomground Contributors"
+
+[[annotations]]
+path = [
+  "LICENSE", "*.md", ".gitignore", "NOTICE", "pyproject.toml",
+  "requirements-dev.txt", "requirements-release.txt",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Flxk1"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = [
+  ".github/**",
+  "docs/**", "examples/**", "scripts/**", "tests/**",
+  "src/versum/**", "*.json", "*.toml",
+  "skills/**", ".claude-plugin/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Flxk1"
+SPDX-License-Identifier = "Apache-2.0"

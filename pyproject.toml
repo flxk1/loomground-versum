@@ -1,0 +1,56 @@
+[project]
+name = "loomground-versum"
+version = "0.6.4"
+description = "Domain-general knowledge-graph engine: drop it on any folder of files."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSES/Apache-2.0.txt", "NOTICE"]
+authors = [{ name = "Loomground Contributors" }]
+dependencies = [
+  "pdfplumber>=0.10",
+  "loomground-governance>=0.8,<0.9",
+  "loomground-deontic>=0.1,<0.2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+nd-config = ["PyYAML>=6"]
+stemming = ["snowballstemmer>=2"]
+dev = ["build>=1", "mypy>=1.10", "ruff>=0.6"]
+
+[project.scripts]
+versum = "versum.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/flxk1/loomground-versum"
+Repository = "https://github.com/flxk1/loomground-versum"
+Issues = "https://github.com/flxk1/loomground-versum/issues"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["versum*"]
+
+[tool.setuptools.package-data]
+versum = ["config.example.json", "viewer.html"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

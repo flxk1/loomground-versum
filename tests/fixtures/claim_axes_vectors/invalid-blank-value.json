@@ -1,0 +1,11 @@
+{
+  "name": "invalid-blank-value",
+  "valid": false,
+  "description": "a whitespace-only value is not a value",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": {
+      "polarity": "   "
+    }
+  }
+}

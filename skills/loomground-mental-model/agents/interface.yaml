@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mental Model Engine"
+  short_description: "Scan content into a ConceptGraph and project it"
+  default_prompt: "Use $loomground-mental-model to build a mental model of this and project it to the format I need."

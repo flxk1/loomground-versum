@@ -1,0 +1,9 @@
+{
+  "skill": "loomground-knowledge-write",
+  "provides": "knowledge.capture",
+  "wraps": "loomground-editorial capture-to-kg/scripts/kg_capture.py via delegate_capture.py",
+  "scripted": true,
+  "fail_closed": true,
+  "provenance": "Authored for loomground; delegates to the Apache-2.0 loomground-editorial capture-to-kg writer. No third-party skill source.",
+  "notes": "Single-door alias: the adapter only forwards the canonical capture-to-kg CLI and fails closed if it is unavailable."
+}

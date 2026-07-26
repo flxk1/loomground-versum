@@ -1,0 +1,12 @@
+{
+  "name": "valid-partial-axes",
+  "valid": true,
+  "description": "a subset of recognized axes is valid",
+  "record": {
+    "schema": "loomground.versum.claim-axes/v1",
+    "axes": {
+      "predicate": "defines",
+      "modality": "definitional"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "kg_root": "/absolute/path/to/kg/06_Graph/versum",
+  "profile_id": "generic",
+  "exclude_prefixes": ["_"],
+  "watch_interval_seconds": 30,
+  "libraries": [
+    {
+      "id": "my-library",
+      "root_path": "/absolute/path/to/the/document/library",
+      "urn_namespace": "mylib",
+      "registry_csv": null,
+      "registry_path_prefix": ""
+    }
+  ]
+}

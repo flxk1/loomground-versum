@@ -1,0 +1,43 @@
+{
+  "_comment": "Loomground Versum Live Index config (universal, domain-neutral). Copy this file, replace the placeholder paths with real ones for your machine, then: `python -m versum seed-state --config <this>` snapshots what the bulk migration already indexed; `python -m versum sync --config <this>` runs one incremental pass; `python -m versum watch --config <this>` polls. Keys starting with '_' are documentation and are ignored by the loader. Nothing here is bound to a user, OS, or domain.",
+
+  "_doc_kg_root": "Directory that holds the by-domain KG store (by-domain/<domain>/{claims.csv,fingerprints.json,sources.csv,...}) and the _sync_state.json snapshot.",
+  "kg_root": "/path/to/kg-index",
+
+  "_doc_profile_id": "Which registered Profile drives extraction and fingerprint vocabulary. 'generic' is the domain-neutral default; register another for your domain. NOTE: the profile stamps a claim's 5D axes (predicate/modality/polarity), which feed CONCEPT identity in the canon — a wrong profile mis-stamps concepts, not just text. For a mixed-domain corpus prefer per-domain routing (below) over one global profile.",
+  "profile_id": "generic",
+
+  "_doc_domain_profiles": "Optional map domain -> profile_id (or 'library:domain' -> profile_id) used by reextract_full.py to pick a profile PER domain, overriding the library/global default. Use it so non-law domains are not extracted through a legal profile. Registered profiles: generic, law-eu, news, scholarly (neutral academic predicates for non-law prose).",
+  "domain_profiles": {},
+
+  "_doc_morph_language": "Optional key_term morphology for curation (ADR-003): 'auto' = dependency-free conservative stemmer (recommended, precise), a language name ('german', 'english', …) = Snowball (higher recall, aggressive/opt-in), null/omit = off. Concept id uses the normalized form; the label keeps the surface form.",
+  "morph_language": null,
+
+  "_doc_exclude_prefixes": "Top-level library subdirectory names starting with any of these are skipped (e.g. _archive, _duplicates). Files directly under a library root are never excluded by this rule.",
+  "exclude_prefixes": ["_"],
+
+  "_doc_watch_interval_seconds": "Poll interval in seconds for `watch`. Pure poll loop, cross-platform, no OS filesystem-watch calls.",
+  "watch_interval_seconds": 30,
+
+  "libraries": [
+    {
+      "_doc_id": "Stable identifier for this library; namespaces its files in the sync state and stamps the KG `library` column.",
+      "id": "example-library",
+
+      "_doc_root_path": "Directory to walk. Its first-level subfolders become KG domains; files directly under it get domain '_root'.",
+      "root_path": "/path/to/example-library",
+
+      "_doc_urn_namespace": "URN namespace used when a file's identity must be MINTED (no registry match). The same file under two libraries with different namespaces yields two distinct URNs.",
+      "urn_namespace": "exlib",
+
+      "_doc_registry_csv": "Optional path to a KG 19-column source_registry.csv. When present, a file whose relpath/filename matches a row REUSES that row's canonical_urn (provenance 'kg-registry'); otherwise identity is minted. null means always mint.",
+      "registry_csv": null,
+
+      "_doc_registry_path_prefix": "Prefix prepended to a file's library-relative path before matching it against the registry's original_path column (e.g. 'knowledge_library/'). Empty when the registry paths are already library-relative.",
+      "registry_path_prefix": "",
+
+      "_doc_profile_id": "Optional per-library default profile, overriding the top-level profile_id for this library's domains (still overridable per domain via domain_profiles).",
+      "profile_id": "generic"
+    }
+  ]
+}
