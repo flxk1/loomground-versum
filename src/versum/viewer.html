@@ -263,6 +263,13 @@ addEventListener("keydown", e => { if (e.key === "Escape") {
 const card = document.getElementById("card");
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+/* Only emit an href for schemes that can't execute script. esc() escapes
+   &<>" but a javascript: URL contains none of those, so it would survive esc
+   and run on click; validate the scheme before ever building the anchor. */
+function safeUrl(u) {
+  const s = String(u ?? "").trim();
+  return /^(https?|file|mailto):/i.test(s) ? s : "";
+}
 function fmtSize(bytes) {
   const b = Number(bytes);
   if (!b) return "";
@@ -322,7 +329,8 @@ function select(n) {
     h += `</div>`;
   }
   h += `<div class="actions">`;
-  if (fileUrl) h += `<a href="${esc(fileUrl)}" target="_blank" rel="noopener">Open file</a>`;
+  const openUrl = safeUrl(fileUrl);
+  if (openUrl) h += `<a href="${esc(openUrl)}" target="_blank" rel="noopener">Open file</a>`;
   h += `<a id="cfocus">Focus</a>`;
   if (n.kind === "claim" && byId.get(n.attrs.source_urn))
     h += `<a data-id="${esc(n.attrs.source_urn)}">Source</a>`;
