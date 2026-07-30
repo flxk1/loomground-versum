@@ -492,7 +492,8 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
         try:
             res = _extract_file(abspath, canonical, profile)
         except Exception as e:  # a bad/binary file must not sink the pass
-            report["errors"].append({"relpath": rel, "error": type(e).__name__})
+            report["errors"].append(
+                {"relpath": rel, "error": f"{type(e).__name__}: {e}"})
             continue
 
         items = res["items"]
