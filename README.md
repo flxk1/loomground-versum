@@ -96,8 +96,8 @@ pip install .
 ```
 
 This installs the `versum` command. Runtime dependencies are `pdfplumber` and the
-`loomground-governance` adoption kit, pinned to a tagged release of the canonical repository;
-installing from source therefore also requires Git. Versum supports Python 3.10 or newer on
+`loomground-governance` and `loomground-deontic` adoption kits, each pinned to a tagged
+release of its canonical repository; installing from source therefore also requires Git. Versum supports Python 3.10 or newer on
 any operating system. For development against an unreleased Loomground checkout, set
 `LOOMGROUND_SOURCE` to that checkout's path instead of installing the pinned kit. Versum uses
 Loomground's published data-only adoption kit and runtime-neutral protocol; it does not
