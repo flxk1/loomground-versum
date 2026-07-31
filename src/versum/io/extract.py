@@ -18,10 +18,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import urllib.parse
 from pathlib import Path
+
+# ── PDF parsing bounds ───────────────────────────────────────────
+# Versum reads untrusted documents locally, so a crafted PDF can be a
+# decompression/page bomb (small on disk, enormous once opened). These caps
+# are generous enough never to touch a real document but stop a pathological
+# file from exhausting memory/CPU — an over-cap file raises and is recorded as
+# a per-file error by the caller, rather than loaded wholesale. Override via env.
+MAX_PDF_BYTES = int(os.environ.get("VERSUM_MAX_PDF_BYTES", str(200 * 1024 * 1024)))  # 200 MiB
+MAX_PDF_PAGES = int(os.environ.get("VERSUM_MAX_PDF_PAGES", "5000"))
 
 # ── unit segmentation ────────────────────────────────────────────
 ARTICLE_RE = re.compile(r"(?m)^\s*(Article|Artikel)\s+(\d+[a-z]?)\b")
@@ -129,7 +139,8 @@ def _in_table(line, bboxes) -> bool:
     return False
 
 
-def extract_text(pdf_path: str, skip_tables: bool = True) -> str:
+def extract_text(pdf_path: str, skip_tables: bool = True,
+                 max_bytes: int | None = None, max_pages: int | None = None) -> str:
     """Extract page text with adaptive per-line space inference (ADR-002).
 
     Uses pdfplumber's own line detection (``extract_text_lines``) for reading order, then
@@ -139,10 +150,27 @@ def extract_text(pdf_path: str, skip_tables: bool = True) -> str:
     ``skip_tables`` (default) drops lines inside detected ruled-table regions: table cells
     read as word salad once linearised ("Datum date YYYY MM DD"), which pollutes claim
     extraction and downstream term mining. Table *detection* is geometric (ruling lines),
-    never content-based; the fallback path has no geometry, so nothing is dropped there."""
+    never content-based; the fallback path has no geometry, so nothing is dropped there.
+
+    ``max_bytes`` / ``max_pages`` bound the work a single (untrusted) PDF can force
+    (default from ``MAX_PDF_BYTES`` / ``MAX_PDF_PAGES``). A file over either cap raises
+    ``ValueError`` before its pages are materialised, so the caller records it as a
+    per-file error instead of loading a page/decompression bomb wholesale."""
+    max_bytes = MAX_PDF_BYTES if max_bytes is None else max_bytes
+    max_pages = MAX_PDF_PAGES if max_pages is None else max_pages
+    size = os.path.getsize(pdf_path)
+    if size > max_bytes:
+        raise ValueError(
+            f"PDF {pdf_path} is {size} bytes, over the {max_bytes}-byte cap "
+            f"(VERSUM_MAX_PDF_BYTES); skipped to avoid unbounded parsing")
     import pdfplumber
     parts = []
     with pdfplumber.open(pdf_path) as pdf:
+        n_pages = len(pdf.pages)
+        if n_pages > max_pages:
+            raise ValueError(
+                f"PDF {pdf_path} has {n_pages} pages, over the {max_pages}-page cap "
+                f"(VERSUM_MAX_PDF_PAGES); skipped to avoid unbounded parsing")
         for page in pdf.pages:
             try:
                 lines = page.extract_text_lines()
