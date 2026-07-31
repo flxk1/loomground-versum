@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import time
 from pathlib import Path
 
@@ -223,14 +224,88 @@ def _read_rows(path: Path):
     return list(r.fieldnames or []), rows
 
 
+def _atomic_write_text(path: Path, text: str) -> None:
+    """Write ``text`` to ``path`` via a temp file + :func:`os.replace`.
+
+    A plain ``open(path, "w")`` that is interrupted (crash, full disk, a
+    concurrent writer) leaves a truncated file behind. For a read-modify-write
+    store like ``fingerprints.json`` that truncated file reads back as corrupt on
+    the next pass and — before this was made atomic — was silently reset to an
+    empty dict and overwritten, destroying every previously recorded entry.
+    Writing to a sibling temp file and atomically renaming it into place means a
+    reader only ever sees the whole old file or the whole new one, never a
+    half-written one.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.tmp-{os.getpid()}")
+    try:
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def _preserve_corrupt(path: Path) -> Path:
+    """Rename an unparseable store aside as ``<name>.corrupt`` for inspection.
+
+    Never clobbers an earlier backup — if ``.corrupt`` is taken, a numeric suffix
+    is added — so repeated corruption can't erase the first (most useful) copy.
+    Returns the path the file was preserved at.
+    """
+    dest = path.with_name(f"{path.name}.corrupt")
+    n = 1
+    while dest.exists():
+        dest = path.with_name(f"{path.name}.corrupt.{n}")
+        n += 1
+    os.replace(path, dest)
+    return dest
+
+
+def _load_fingerprint_store(fp_path: Path, domain: str) -> dict:
+    """Return the ``{canonical_urn: fingerprint}`` store, or ``{}`` if absent/empty.
+
+    A store that exists, is non-empty, but does not parse as a JSON object is
+    genuine corruption (a truncated write, disk damage, a concurrent writer). The
+    old behavior silently reset it to ``{}`` and then overwrote the file, erasing
+    every previously recorded fingerprint for the domain. Instead, preserve the
+    unreadable file (``_preserve_corrupt``) and raise, so the caller fails this
+    source loudly rather than destroying data. An empty/whitespace file is treated
+    as "no entries yet", not corruption.
+    """
+    if not fp_path.exists():
+        return {}
+    text = fp_path.read_text(encoding="utf-8")
+    if not text.strip():
+        return {}
+    try:
+        data = json.loads(text)
+    except Exception as e:
+        kept = _preserve_corrupt(fp_path)
+        raise ValueError(
+            f"fingerprints store for domain {domain!r} is unparseable "
+            f"({type(e).__name__}: {e}); preserved the unreadable file as "
+            f"{kept.name} and aborted this source's write so existing fingerprints "
+            f"are not destroyed"
+        ) from e
+    if not isinstance(data, dict):
+        kept = _preserve_corrupt(fp_path)
+        raise ValueError(
+            f"fingerprints store for domain {domain!r} is not a JSON object "
+            f"(found {type(data).__name__}); preserved it as {kept.name} and "
+            f"aborted this source's write to avoid destroying existing data"
+        )
+    return data
+
+
 def _write_rows(path: Path, columns, rows) -> None:
     import csv
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="", encoding="utf-8") as fh:
-        w = csv.DictWriter(fh, fieldnames=columns, extrasaction="ignore", lineterminator="\n")
-        w.writeheader()
-        for row in rows:
-            w.writerow({c: ("" if row.get(c) is None else row.get(c)) for c in columns})
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=columns, extrasaction="ignore", lineterminator="\n")
+    w.writeheader()
+    for row in rows:
+        w.writerow({c: ("" if row.get(c) is None else row.get(c)) for c in columns})
+    _atomic_write_text(path, buf.getvalue())
 
 
 class KGStore:
@@ -262,6 +337,16 @@ class KGStore:
         d = self._domain_dir(domain)
         d.mkdir(parents=True, exist_ok=True)
 
+        # fingerprints.json — read the existing {canonical_urn: fingerprint} store
+        # FIRST, before writing anything. A store that exists but won't parse is
+        # genuine corruption; _load_fingerprint_store preserves it and raises here,
+        # so a bad read aborts the whole source (recorded in the run's error list)
+        # instead of silently resetting to {} and overwriting away every prior
+        # fingerprint for the domain. Reading before the claims append also means a
+        # corrupt store fails the source cleanly, with no partial write left behind.
+        fp_path = d / "fingerprints.json"
+        fps = _load_fingerprint_store(fp_path, domain)
+
         # claims.csv — append (header once). Each row stamped with canonical_urn + library.
         claims_path = d / "claims.csv"
         fresh = not claims_path.exists()
@@ -275,19 +360,13 @@ class KGStore:
                 w.writerow({c: ("" if stamped.get(c) is None else stamped.get(c))
                             for c in CLAIM_COLUMNS})
 
-        # fingerprints.json — read-modify-write dict {canonical_urn: fingerprint}.
-        fp_path = d / "fingerprints.json"
-        fps = {}
-        if fp_path.exists():
-            try:
-                fps = json.loads(fp_path.read_text(encoding="utf-8")) or {}
-            except Exception:
-                fps = {}
+        # fingerprints.json — modify the store read above and write it back
+        # atomically so an interrupted write can't leave a truncated (corrupt) file.
         fps[canonical_urn] = {**fingerprint, "canonical_urn": canonical_urn,
                               "library": library}
-        fp_path.write_text(
-            json.dumps(fps, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8")
+        _atomic_write_text(
+            fp_path,
+            json.dumps(fps, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
         # sources.csv — append/update the row for this relpath.
         src_path = d / "sources.csv"
@@ -322,15 +401,15 @@ class KGStore:
 
         fp_path = d / "fingerprints.json"
         if fp_path.exists():
-            try:
-                fps = json.loads(fp_path.read_text(encoding="utf-8")) or {}
-            except Exception:
-                fps = {}
+            # Same loader as append_source: a corrupt store raises here (and is
+            # preserved) rather than being silently treated as empty, which would
+            # skip the removal and leave a stale fingerprint behind with no signal.
+            fps = _load_fingerprint_store(fp_path, domain)
             if canonical_urn in fps:
                 fps.pop(canonical_urn, None)
-                fp_path.write_text(
-                    json.dumps(fps, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-                    encoding="utf-8")
+                _atomic_write_text(
+                    fp_path,
+                    json.dumps(fps, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
         src_path = d / "sources.csv"
         cols, rows = _read_rows(src_path)
@@ -413,7 +492,8 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
         try:
             res = _extract_file(abspath, canonical, profile)
         except Exception as e:  # a bad/binary file must not sink the pass
-            report["errors"].append({"relpath": rel, "error": type(e).__name__})
+            report["errors"].append(
+                {"relpath": rel, "error": f"{type(e).__name__}: {e}"})
             continue
 
         items = res["items"]
@@ -427,38 +507,46 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
         claim_rows = [flatten_claim(it, profile.id) for it in items]
         sha1 = content_sha1(abspath)
 
-        if rel in p["changed"]:
-            prev = state.get(lib_id, rel) or {}
-            prev_canon = prev.get("canonical_urn") or canonical
-            prev_domain = prev.get("domain", domain)
-            previous_claim_ids = store.claim_ids(prev_domain, prev_canon)
+        # Persist the source. A corrupt fingerprint store raises inside the store
+        # writes (rather than silently wiping itself); record it against this file
+        # and keep going, so one damaged domain doesn't sink indexing for every
+        # other library. On failure no state/counters are updated, so the source is
+        # retried on the next pass.
+        try:
+            if rel in p["changed"]:
+                prev = state.get(lib_id, rel) or {}
+                prev_canon = prev.get("canonical_urn") or canonical
+                prev_domain = prev.get("domain", domain)
+                previous_claim_ids = store.claim_ids(prev_domain, prev_canon)
+                if event_log is not None:
+                    event_log.append("source.removed", "source",
+                                     source_object_id(lib_id, rel), {
+                        "library": lib_id, "relpath": rel, "domain": prev_domain,
+                        "canonical_urn": prev_canon,
+                        "affected_claim_ids": previous_claim_ids,
+                    })
+                store.remove_source(prev_domain, prev_canon, rel)
+
+            st = abspath.stat()
+            state_entry = {
+                "sha1": sha1, "canonical_urn": canonical, "size": st.st_size,
+                "mtime": int(st.st_mtime), "domain": domain, "n_claims": len(claim_rows)}
             if event_log is not None:
-                event_log.append("source.removed", "source",
+                event_log.append("source.upserted", "source",
                                  source_object_id(lib_id, rel), {
-                    "library": lib_id, "relpath": rel, "domain": prev_domain,
-                    "canonical_urn": prev_canon,
-                    "affected_claim_ids": previous_claim_ids,
+                    "library": lib_id, "relpath": rel, "domain": domain,
+                    "canonical_urn": canonical, "provenance": provenance, "sha1": sha1,
+                    "claim_rows": claim_rows, "fingerprint": fp_obj,
+                    "state_entry": state_entry,
+                    "affected_claim_ids": sorted(row.get("item_id", "") for row in claim_rows
+                                                 if row.get("item_id")),
                 })
-            store.remove_source(prev_domain, prev_canon, rel)
-
-        st = abspath.stat()
-        state_entry = {
-            "sha1": sha1, "canonical_urn": canonical, "size": st.st_size,
-            "mtime": int(st.st_mtime), "domain": domain, "n_claims": len(claim_rows)}
-        if event_log is not None:
-            event_log.append("source.upserted", "source",
-                             source_object_id(lib_id, rel), {
-                "library": lib_id, "relpath": rel, "domain": domain,
-                "canonical_urn": canonical, "provenance": provenance, "sha1": sha1,
-                "claim_rows": claim_rows, "fingerprint": fp_obj,
-                "state_entry": state_entry,
-                "affected_claim_ids": sorted(row.get("item_id", "") for row in claim_rows
-                                             if row.get("item_id")),
-            })
-        store.append_source(domain, lib_id, canonical, provenance, rel, sha1,
-                            claim_rows, fp_obj)
-
-        state.put(lib_id, rel, state_entry)
+            store.append_source(domain, lib_id, canonical, provenance, rel, sha1,
+                                claim_rows, fp_obj)
+            state.put(lib_id, rel, state_entry)
+        except Exception as e:  # corrupt store / disk error: record and keep going
+            report["errors"].append({"relpath": rel, "error": f"{type(e).__name__}: {e}"})
+            continue
 
         report["indexed"] += 1
         report["claims"] += len(claim_rows)
