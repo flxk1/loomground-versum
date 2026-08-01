@@ -12,7 +12,7 @@
 
 ## Context
 
-The KG began as "Digital Law Sources" and its semantic vocabulary was ported from
+The KG began as a digital-law corpus and its semantic vocabulary was ported from
 Idea6's `nd_eu_law` (10 deontic predicates, EU-law principles, judicial canons, CELEX
 instrument ranks). That was a coincidence of the first corpus — the framework must be
 **open to any knowledge domain** (science, music-industry, history, …), with law as
