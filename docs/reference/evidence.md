@@ -72,9 +72,9 @@ registry proof, and the citation-only majority needs separate coverage.
 ## Current limitations
 
 - Versum has no runtime or release dependency on retired product repositories or their
-  legacy write paths. Its only Git-sourced package dependency is the neutral
-  `loomground-governance` adoption kit, pinned to a tagged release of
-  the canonical `loomground-governance` repository.
+  legacy write paths. Its Git-sourced package dependencies are the neutral
+  `loomground-governance` and `loomground-deontic` adoption kits, each pinned to a
+  tagged release of its canonical repository.
 
 - User nD packages define and validate contextual systems; specialized extraction adapters
   are not bundled.
@@ -88,6 +88,8 @@ registry proof, and the citation-only majority needs separate coverage.
   migration into contextual assignments and derivation records.
 - Versum consumes Loomground's published `loomground-governance` adoption kit from the pinned
   GitHub repository. The kit is data-only and runtime-neutral; parsing and evaluation remain
-  responsibilities of conforming tools rather than Versum.
+  responsibilities of conforming tools rather than Versum. Versum likewise consumes the
+  data-only `loomground-deontic` pack to build the deontic (governance-facet) nD system,
+  adding no vocabulary of its own.
 - Whole-registry, citation-majority, multi-profile gold-set, performance, and corpus-quality
   gates still require external fixtures and are not represented as completed local evidence.
