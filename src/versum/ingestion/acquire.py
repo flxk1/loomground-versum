@@ -35,6 +35,10 @@ import versum.profiles  # noqa: F401 — register built-in profiles
 
 LOG_NAME = "_acquire_log.csv"
 PENDING_DIR = "_pending_fetch"
+# Workspace housekeeping files a live inbox legitimately holds beside its artifacts; the
+# orphan-files audit ignores these (and any dotfile, e.g. macOS .DS_Store) — everything
+# else on disk must have a ledger row.
+AUDIT_EXEMPT_NAMES = frozenset({"README.md", "organise.config.json"})
 LOG_COLUMNS = [
     "input", "kind", "urn", "previous_urn", "identifier", "identity_method",
     "status", "artifact", "location", "source_url", "content_sha256", "title",
@@ -302,6 +306,9 @@ def acquire(item, inbox, profile_id: str = "generic", namespace=None, fetcher: F
 def audit(inbox) -> dict:
     """Both-directions integrity: no ledger row without its artifact/citation on disk, and no
     acquired artifact on disk without a ledger row. Returns lists of any orphans (empty == clean).
+
+    Dotfiles (``.DS_Store`` etc.) and ``AUDIT_EXEMPT_NAMES`` are workspace housekeeping, not
+    artifacts, and are outside the orphan-files scan.
     """
     inbox = Path(inbox)
     log = load_log(inbox)
@@ -330,6 +337,7 @@ def audit(inbox) -> dict:
     logged = {r["artifact"] for r in log
               if r["status"] in {"acquired", "registered"} and r["artifact"]}
     orphan_files = [f.name for f in inbox.iterdir()
-                    if (f.is_file() and not f.name.startswith("_")
-                        and not f.name.endswith(".metadata.json") and f.name not in logged)]
+                    if (f.is_file() and not f.name.startswith(("_", "."))
+                        and not f.name.endswith(".metadata.json")
+                        and f.name not in AUDIT_EXEMPT_NAMES and f.name not in logged)]
     return {"orphan_rows": orphan_rows, "orphan_files": orphan_files}

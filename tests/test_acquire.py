@@ -218,6 +218,22 @@ def test_no_id_citation_upgrades_with_explicit_alias(tmp_path):
     assert A.audit(tmp_path) == {"orphan_rows": [], "orphan_files": []}
 
 
+def test_audit_exempts_workspace_housekeeping_files(tmp_path):
+    src = tmp_path / "report.pdf"
+    inbox = tmp_path / "_inbox"
+    src.write_bytes(b"%PDF-1.4\nbody\n%%EOF\n")
+    A.acquire(src, inbox)
+
+    (inbox / ".DS_Store").write_bytes(b"\x00")          # macOS Finder metadata
+    (inbox / "README.md").write_text("workspace notes", encoding="utf-8")
+    (inbox / "organise.config.json").write_text("{}", encoding="utf-8")
+    (inbox / "stray.pdf").write_bytes(b"unledgered")    # a real orphan stays flagged
+
+    a = A.audit(inbox)
+    assert a["orphan_rows"] == []
+    assert a["orphan_files"] == ["stray.pdf"]
+
+
 def test_quarantine_updates_authoritative_ledger(tmp_path):
     src = tmp_path / "broken.pdf"
     inbox = tmp_path / "_inbox"
