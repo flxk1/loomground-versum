@@ -166,6 +166,36 @@ def test_pre_k1_store_gets_a_replayable_legacy_baseline(tmp_path):
             if key != EVENT_LOG_FILE} == before
 
 
+def test_legacy_baseline_skips_finder_cruft_in_by_domain(tmp_path):
+    cfg = _config(tmp_path)
+    library = Path(cfg["libraries"][0]["root_path"])
+    _write(library / "alpha" / "a.txt", DOC_A)
+    sync.sync_once(cfg)
+    source = Path(cfg["kg_root"])
+    (source / EVENT_LOG_FILE).unlink()
+    (source / "by-domain" / ".DS_Store").write_bytes(b"\x00\x01Bud1\x80\xff")
+    (source / "by-domain" / "alpha" / ".DS_Store").write_bytes(b"\x00\x01Bud1\x80\xff")
+
+    sync.sync_once(cfg)
+
+    baseline = read_events(source)[0]
+    assert baseline["event_type"] == "projection.baseline"
+    assert not any(".DS_Store" in relpath for relpath in baseline["payload"]["files"])
+
+
+def test_legacy_baseline_names_a_non_utf8_store_file(tmp_path):
+    cfg = _config(tmp_path)
+    library = Path(cfg["libraries"][0]["root_path"])
+    _write(library / "alpha" / "a.txt", DOC_A)
+    sync.sync_once(cfg)
+    source = Path(cfg["kg_root"])
+    (source / EVENT_LOG_FILE).unlink()
+    (source / "by-domain" / "alpha" / "rogue.bin").write_bytes(b"\x80\x81\xfe\xff")
+
+    with pytest.raises(ValueError, match="by-domain/alpha/rogue.bin"):
+        sync.sync_once(cfg)
+
+
 def test_change_feed_names_only_changed_source_and_exact_claims(tmp_path):
     cfg = _config(tmp_path)
     library = Path(cfg["libraries"][0]["root_path"])
