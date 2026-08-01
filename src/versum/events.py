@@ -96,17 +96,31 @@ class EventLog:
         return self._latest.get(object_id, ABSENT_DIGEST)
 
     def bootstrap_legacy_projection(self) -> dict | None:
-        """Capture one replayable baseline when upgrading an eventless pre-K1 store."""
+        """Capture one replayable baseline when upgrading an eventless pre-K1 store.
+
+        Dotfiles under ``by-domain/`` (Finder's ``.DS_Store`` etc.) are filesystem
+        cruft, not store state, and are left out of the baseline.
+        """
         if self._events:
             return None
         candidates = [self.root / "_sync_state.json", self.root / "_nd_systems.json"]
         by_domain = self.root / "by-domain"
         if by_domain.exists():
-            candidates.extend(path for path in sorted(by_domain.rglob("*")) if path.is_file())
-        files = {
-            path.relative_to(self.root).as_posix(): path.read_text(encoding="utf-8")
-            for path in candidates if path.is_file()
-        }
+            candidates.extend(
+                path for path in sorted(by_domain.rglob("*"))
+                if path.is_file() and not any(part.startswith(".") for part in
+                                              path.relative_to(by_domain).parts))
+        files = {}
+        for path in candidates:
+            if not path.is_file():
+                continue
+            relpath = path.relative_to(self.root).as_posix()
+            try:
+                files[relpath] = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError as exc:
+                raise ValueError(
+                    f"store file {relpath!r} is not UTF-8 text and cannot be captured "
+                    "in the legacy baseline") from exc
         if not files:
             return None
         return self.append("projection.baseline", "projection", "projection:legacy", {
