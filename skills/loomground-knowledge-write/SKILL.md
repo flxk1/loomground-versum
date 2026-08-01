@@ -77,7 +77,7 @@ writes the provenance + candidate-claim layers only; concept links are curation.
   or schema.
 - No in-session fetching: never pull a PDF (or any binary) over the network from within
   a session — no curl / urllib / web-fetch bypass. Binaries arrive out-of-band only.
-- Sit on top of the existing KG, don't duplicate it: where a Digital Law Sources stub /
+- Sit on top of the existing KG, don't duplicate it: where a KG stub /
   sidecar / registry already exists for a source, consume it — reuse its URN and
   sidecar rather than re-minting a parallel provenance record.
 

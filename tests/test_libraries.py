@@ -6,12 +6,12 @@ from versum.libraries import LibrariesRegistry, LibraryError
 
 def test_resolve_is_root_plus_relpath(tmp_path):
     libs = LibrariesRegistry({
-        "dls": {"root_path": str(tmp_path / "Digital Law Sources"),
+        "dls": {"root_path": str(tmp_path / "Example Corpus"),
                 "urn_namespace": "dls"},
     })
     rel = "knowledge_library/ai_act_and_regulation/2021/Foo.pdf"
     got = libs.resolve("dls", rel)
-    assert got == (tmp_path / "Digital Law Sources" / rel).resolve()
+    assert got == (tmp_path / "Example Corpus" / rel).resolve()
     assert libs.namespace_for("dls") == "dls"
 
 
