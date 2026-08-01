@@ -29,6 +29,21 @@ def test_recorded_pipeline_runs_end_to_end_and_resumes(tmp_path):
     assert resumed["resumed"] is True and resumed["run_id"] == no_op["run_id"]
 
 
+def test_process_completes_with_workspace_housekeeping_files(tmp_path):
+    inbox, review = tmp_path / "_inbox", tmp_path / "_review"
+    src = tmp_path / "report.pdf"
+    src.write_bytes(PDF)
+    acquire.acquire(src, inbox)
+
+    # A live macOS workspace inbox always carries these alongside the artifacts.
+    (inbox / ".DS_Store").write_bytes(b"\x00")
+    (inbox / "README.md").write_text("workspace notes", encoding="utf-8")
+    (inbox / "organise.config.json").write_text("{}", encoding="utf-8")
+
+    result = process(inbox, review)
+    assert result["status"] == "complete"
+
+
 def test_public_cli_ingest_process_and_audit(tmp_path, capsys):
     inbox, review = tmp_path / "_inbox", tmp_path / "_review"
     src = tmp_path / "note.txt"
