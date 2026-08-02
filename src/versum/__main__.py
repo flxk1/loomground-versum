@@ -91,6 +91,12 @@ def main(argv=None) -> int:
     psy.add_argument("--force-reextract", action="store_true",
                      help="re-extract every known file (cascades identity changes)")
     pse = sub.add_parser("seed-state"); pse.add_argument("--config", required=True)
+    pov = sub.add_parser("overlay", help="write the markdown overlay projection "
+                                         "into each library root")
+    pov.add_argument("--config", required=True)
+    pov.add_argument("--dirname", default=None,
+                     help="overlay directory name (default: _overlay; must start "
+                          "with an exclude prefix so it is never corpus)")
     pre = sub.add_parser("replay-events", help="rebuild an empty KG from its K1 event log")
     pre.add_argument("--source", required=True, help="KG root containing _events.jsonl")
     pre.add_argument("--target", required=True, help="empty target KG root")
@@ -208,6 +214,12 @@ def main(argv=None) -> int:
     elif args.cmd == "seed-state":
         from .sync import load_config, seed_state
         print(json.dumps(seed_state(load_config(args.config)), ensure_ascii=False, indent=2))
+    elif args.cmd == "overlay":
+        from .overlay import OVERLAY_DIRNAME, write_overlay
+        from .sync import load_config
+        print(json.dumps(write_overlay(load_config(args.config),
+                                       dirname=args.dirname or OVERLAY_DIRNAME),
+                         ensure_ascii=False, indent=2))
     elif args.cmd == "replay-events":
         from .events import replay_event_log
         print(json.dumps(replay_event_log(args.source, args.target),
