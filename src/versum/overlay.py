@@ -36,8 +36,24 @@ def _domain_claims(kg_root: Path, domain: str) -> dict[str, list[dict]]:
     return grouped
 
 
+_NAME_BYTES_MAX = 200  # margin under the common 255-byte filename limit
+
+
 def _note_relpath(relpath: str) -> str:
-    return f"sources/{relpath}.md"
+    """The overlay-relative note path for a source; deterministic and collision-free.
+
+    Appending ``.md`` to a source name near the filesystem's per-component byte
+    limit would overflow it, so over-long names are truncated (UTF-8-safely) and
+    disambiguated with a digest of the full relpath.
+    """
+    head, _, name = relpath.rpartition("/")
+    note_name = name + ".md"
+    if len(note_name.encode("utf-8")) > _NAME_BYTES_MAX:
+        import hashlib
+        digest = hashlib.sha1(relpath.encode("utf-8")).hexdigest()[:12]
+        keep = name.encode("utf-8")[:_NAME_BYTES_MAX - 20].decode("utf-8", "ignore")
+        note_name = f"{keep}--{digest}.md"
+    return f"sources/{head}/{note_name}" if head else f"sources/{note_name}"
 
 
 def _source_note(lib_id: str, relpath: str, entry: dict, claims: list[dict]) -> str:
@@ -55,7 +71,8 @@ def _source_note(lib_id: str, relpath: str, entry: dict, claims: list[dict]) -> 
     if claims:
         for row in claims:
             label = row.get("predicate") or row.get("type") or row.get("marker") or "claim"
-            lines.append(f"- **{label}** — {row.get('text', '')}")
+            text = " ".join(row.get("text", "").split())  # extracted text keeps source line breaks
+            lines.append(f"- **{label}** — {text}")
     else:
         lines.append("No claims extracted — this source carries identity and history only.")
     lines.append("")
