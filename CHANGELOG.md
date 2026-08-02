@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.7.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.6.4...loomground-versum-v0.7.0) (2026-08-02)
+
+
+### Features
+
+* first-class stub-bytes pairing operation ([e5e4be9](https://github.com/flxk1/loomground-versum/commit/e5e4be9d5ac5eb23f6a6dff1ed2365017e24589b))
+* markdown overlay projection written back into the library ([1fdd94e](https://github.com/flxk1/loomground-versum/commit/1fdd94e493346c9a080d54f565e0d181c7a2034a))
+* regenerate the overlay projection as part of sync ([d2e2e14](https://github.com/flxk1/loomground-versum/commit/d2e2e144457d5743c984b23b4af2283b77b395f5))
+
+
+### Bug Fixes
+
+* exclude hidden paths from the Live Index walk ([6a66b0a](https://github.com/flxk1/loomground-versum/commit/6a66b0ab7277ff83e2275db770750bba8a622838))
+* exempt workspace housekeeping files from inbox orphan audit ([7021b18](https://github.com/flxk1/loomground-versum/commit/7021b1820a263b1b3efef0bccc1ddd56b2a7b71b))
+* honour KG metadata sidecars in Live Index sync ([612a78e](https://github.com/flxk1/loomground-versum/commit/612a78eafb968f3fa610cde82484a64d16115db8))
+* keep overlay note names within the filename byte limit ([12beeb7](https://github.com/flxk1/loomground-versum/commit/12beeb70309655e815c896f2c9260a3005cbeb27))
+* keep release manifests coherent ([#7](https://github.com/flxk1/loomground-versum/issues/7)) ([ca225f6](https://github.com/flxk1/loomground-versum/commit/ca225f6fa860246b127b2695eaeb2e8a12573ede))
+* percent-encode overlay link destinations ([440ff06](https://github.com/flxk1/loomground-versum/commit/440ff064d24de862eb6e3df2d188d15ab69cc65f))
+* tolerate Finder cruft in the K1 legacy-baseline walk ([8603fff](https://github.com/flxk1/loomground-versum/commit/8603fffb2184f6e36376afd9270f3772376d197f))
+* tolerate impossible sidecar filenames ([#6](https://github.com/flxk1/loomground-versum/issues/6)) ([9ca3786](https://github.com/flxk1/loomground-versum/commit/9ca3786fa35b70225c0c655fd9b65993ccdd9822))
+
+
+### Documentation
+
+* document loomground-deontic runtime dependency ([7dc6346](https://github.com/flxk1/loomground-versum/commit/7dc6346087e44f0d027e05714300658d6ac81654))
+* document loomground-deontic runtime dependency ([187b1a7](https://github.com/flxk1/loomground-versum/commit/187b1a7bacd014b353c2de3540f36fc46b7725ef))
+* neutralise retired corpus-name remnants ([5602729](https://github.com/flxk1/loomground-versum/commit/56027295480863b8f2ab65f7dc1c3d8733e8517b))
+
 ## [0.6.4] - 2026-07-26
 
 - Pin the privacy-clean Governance and Deontic publication roots.
