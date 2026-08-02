@@ -74,6 +74,7 @@ def load_config(path) -> dict:
     data.setdefault("exclude_prefixes", ["_"])
     data.setdefault("watch_interval_seconds", 30)
     data.setdefault("libraries", [])
+    data.setdefault("overlay", False)
     data.setdefault("nd_systems", [])
     if data["nd_systems"]:
         from .nd import NDRegistry
@@ -653,6 +654,16 @@ def sync_once(config: dict, force_reextract: bool = False) -> dict:
     for k in ("new", "changed", "removed", "indexed", "claims", "reuse", "mint"):
         agg[k] = sum(r[k] for r in reports)
     agg["errors"] = sum(len(r["errors"]) for r in reports)
+
+    # The overlay reflects the store it was generated from; when the config opts
+    # in ("overlay": true, or {"dirname": ...}), regenerate it as the last step
+    # of the pass so editor-facing notes never lag behind a sync.
+    overlay_cfg = config.get("overlay")
+    if overlay_cfg:
+        from .overlay import OVERLAY_DIRNAME, write_overlay
+        dirname = (overlay_cfg.get("dirname", OVERLAY_DIRNAME)
+                   if isinstance(overlay_cfg, dict) else OVERLAY_DIRNAME)
+        agg["overlay"] = write_overlay(config, dirname=dirname)["libraries"]
     return agg
 
 
