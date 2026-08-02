@@ -622,9 +622,21 @@ def sync_once(config: dict, force_reextract: bool = False) -> dict:
     rows keyed on its previously recorded canonical_urn, so no orphan rows remain.
     """
     kg_root = config["kg_root"]
+    # The EventLog holds the store's exclusive journal lock — acquire it BEFORE
+    # reading any store state, so a pass that waited on a concurrent sync starts
+    # from the state that sync left behind, never a stale view.
+    event_log = EventLog(kg_root)
+    try:
+        return _sync_once_locked(config, event_log, force_reextract)
+    finally:
+        event_log.close()
+
+
+def _sync_once_locked(config: dict, event_log: EventLog,
+                      force_reextract: bool) -> dict:
+    kg_root = config["kg_root"]
     state = SyncState(kg_root)
     store = KGStore(kg_root)
-    event_log = EventLog(kg_root)
     event_log.bootstrap_legacy_projection()
     profile = get_profile(config.get("profile_id", "generic"))
 
@@ -682,8 +694,16 @@ def seed_state(config: dict) -> dict:
     the way to declare 'the bulk migration already indexed these'.
     """
     kg_root = config["kg_root"]
+    event_log = EventLog(kg_root)   # exclusive journal lock, released in finally
+    try:
+        return _seed_state_locked(config, event_log)
+    finally:
+        event_log.close()
+
+
+def _seed_state_locked(config: dict, event_log: EventLog) -> dict:
+    kg_root = config["kg_root"]
     state = SyncState(kg_root)
-    event_log = EventLog(kg_root)
     event_log.bootstrap_legacy_projection()
     profile = get_profile(config.get("profile_id", "generic"))
 
