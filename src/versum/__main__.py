@@ -88,6 +88,8 @@ def main(argv=None) -> int:
 
     # Live Index (config-driven, incremental, universal)
     psy = sub.add_parser("sync"); psy.add_argument("--config", required=True)
+    psy.add_argument("--force-reextract", action="store_true",
+                     help="re-extract every known file (cascades identity changes)")
     pse = sub.add_parser("seed-state"); pse.add_argument("--config", required=True)
     pre = sub.add_parser("replay-events", help="rebuild an empty KG from its K1 event log")
     pre.add_argument("--source", required=True, help="KG root containing _events.jsonl")
@@ -200,7 +202,9 @@ def main(argv=None) -> int:
                          ensure_ascii=False, indent=2))
     elif args.cmd == "sync":
         from .sync import load_config, sync_once
-        print(json.dumps(sync_once(load_config(args.config)), ensure_ascii=False, indent=2))
+        print(json.dumps(sync_once(load_config(args.config),
+                                   force_reextract=args.force_reextract),
+                         ensure_ascii=False, indent=2))
     elif args.cmd == "seed-state":
         from .sync import load_config, seed_state
         print(json.dumps(seed_state(load_config(args.config)), ensure_ascii=False, indent=2))

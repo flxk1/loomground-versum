@@ -8,7 +8,9 @@ idempotent, reversible.
 Design:
 
   * **Reuse, never duplicate.** Identity comes from :mod:`versum.identity.core` /
-    :mod:`versum.io.consume` (reuse a registered ``canonical_urn`` or mint deterministically),
+    :mod:`versum.io.consume` / :mod:`versum.store.kg` — reuse a registered ``canonical_urn``,
+    else a KG capture sidecar's (``*.metadata.json``), else mint deterministically; KG
+    citation stubs (a ``.md`` with a paired sidecar) are never indexed as sources —
     extraction from :func:`versum.store.index._extract_file`, and the fingerprint from
     :mod:`versum.identity.fingerprint`. This module wires those built parts to a by-domain
     writer; it re-implements none of them.
@@ -35,6 +37,7 @@ from pathlib import Path
 from .io import consume
 from . import profiles as _profiles  # noqa: F401 — registers built-in profiles
 from .identity.fingerprint import fingerprint
+from .store import kg
 from .store.graph import flatten_claim
 from .identity.core import deterministic_identity
 from .store.index import SUPPORTED, _extract_file, _json_safe
@@ -102,7 +105,10 @@ def _walk(root: Path, exclude_prefixes) -> dict:
     ``relpath`` is POSIX, relative to ``root``. ``domain`` is the first path component (or
     ``"_root"`` for a file directly under ``root``). A file inside a top-level subdirectory
     whose name starts with any ``exclude_prefix`` is skipped; files directly under ``root``
-    (domain ``_root``) are never excluded by a prefix rule.
+    (domain ``_root``) are never excluded by a prefix rule. A KG citation stub (a ``.md``
+    with a paired ``*.md.metadata.json`` sidecar) is never a source — its provenance is
+    sidecar-carried, so it is excluded here exactly as :func:`versum.store.index.index_folder`
+    skips it (a previously indexed stub thereby classifies as *removed* and its rows drop).
     """
     root = Path(root)
     prefixes = tuple(exclude_prefixes or ())
@@ -114,6 +120,8 @@ def _walk(root: Path, exclude_prefixes) -> dict:
             continue
         if p.suffix.lower() not in SUPPORTED:
             continue
+        if kg.is_kg_stub(p, root):
+            continue  # KG citation stub — provenance only, never a claim source
         rel = p.relative_to(root).as_posix()
         parts = rel.split("/")
         if len(parts) > 1:
@@ -429,12 +437,39 @@ def _resolve_registry(library_cfg: dict):
     return consume.read_registry(p)
 
 
-def _resolve_identity(reg, match_rel, filename, abspath, profile, namespace):
-    """Return ``(canonical_urn, provenance)`` — reuse a registered urn else mint one."""
+def _paired_sidecar_urn(abspath) -> str | None:
+    """The ``canonical_urn`` carried by this file's own paired sidecar, or ``None``.
+
+    The paired sidecar is ``<filename>.metadata.json`` next to the file — the KG's
+    authoritative provenance for exactly this file, matched by name, no heuristics.
+    """
+    p = Path(abspath)
+    sc = p.with_name(p.name + ".metadata.json")
+    if not sc.exists():
+        return None
+    try:
+        d = json.loads(sc.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    return (d.get("canonical_urn") or "").strip() or None
+
+
+def _resolve_identity(reg, match_rel, filename, abspath, profile, namespace, sidecars=()):
+    """Return ``(canonical_urn, provenance)`` — registry row, then KG sidecar, else mint.
+
+    Precedence mirrors :func:`versum.store.index.index_folder` (ADR-URN option B): a KG
+    *registry* row's ``canonical_urn`` wins over a folder *sidecar*'s, and a sidecar's
+    wins over minting. The file's own paired sidecar is consulted first (exact, by name),
+    then the folder-wide deterministic sidecar match (:func:`versum.store.kg.provenance_urn_for`).
+    """
     if reg is not None:
         reused = reg.reuse_urn(relpath=match_rel, filename=filename)
         if reused:
             return reused, "kg-registry"
+    side = _paired_sidecar_urn(abspath) or (
+        kg.provenance_urn_for(abspath, sidecars) if sidecars else None)
+    if side:
+        return side, "kg-canonical"
     return deterministic_identity(abspath, profile, namespace=namespace)[0], "minted"
 
 
@@ -476,6 +511,8 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
         state.remove(lib_id, rel)
 
     # new + changed — resolve identity, extract, fingerprint, (replace then) append.
+    # KG sidecars are the identity floor (loaded only when there is work to identify).
+    sidecars = kg.load_sidecars(root) if (p["new"] or p["changed"]) else []
     for rel in list(p["new"]) + list(p["changed"]):
         info = disk.get(rel)
         if info is None:  # vanished between plan and now
@@ -487,7 +524,7 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
         match_rel = (reg_prefix + rel) if reg_prefix else rel
 
         canonical, provenance = _resolve_identity(
-            reg, match_rel, filename, abspath, profile, namespace)
+            reg, match_rel, filename, abspath, profile, namespace, sidecars)
 
         try:
             res = _extract_file(abspath, canonical, profile)
@@ -503,6 +540,12 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
             if prov:
                 nd_context = {"jurisdiction": prov.get("jurisdiction", ""),
                               "time": prov.get("detected_year", "")}
+        if nd_context is None and provenance == "kg-canonical":
+            side = next((s for s in sidecars
+                         if s.get("canonical_urn") == canonical), None)
+            if side:
+                nd_context = {"jurisdiction": side.get("jurisdiction") or "",
+                              "time": side.get("year") or ""}
         fp_obj = _json_safe(fingerprint(canonical, items, profile, nd_context=nd_context))
         claim_rows = [flatten_claim(it, profile.id) for it in items]
         sha1 = content_sha1(abspath)
@@ -550,7 +593,7 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
 
         report["indexed"] += 1
         report["claims"] += len(claim_rows)
-        if provenance == "kg-registry":
+        if provenance in ("kg-registry", "kg-canonical"):
             report["reuse"] += 1
         else:
             report["mint"] += 1
@@ -558,8 +601,14 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
     return report
 
 
-def sync_once(config: dict) -> dict:
-    """One incremental pass over every library; saves the state once at the end."""
+def sync_once(config: dict, force_reextract: bool = False) -> dict:
+    """One incremental pass over every library; saves the state once at the end.
+
+    ``force_reextract`` re-extracts every known file even when its bytes are unchanged —
+    the sanctioned way to cascade an identity-resolution change (e.g. a sidecar now
+    settles a URN that was previously minted): the *changed* path replaces each source's
+    rows keyed on its previously recorded canonical_urn, so no orphan rows remain.
+    """
     kg_root = config["kg_root"]
     state = SyncState(kg_root)
     store = KGStore(kg_root)
@@ -571,7 +620,7 @@ def sync_once(config: dict) -> dict:
     # indexed under a different profile (or an unknown one, for legacy states),
     # every known file re-extracts even though its bytes are unchanged.
     signature = {"id": profile.id, "catalogue_version": profile.catalogue_version}
-    force = bool(state.files) and state.profile != signature
+    force = force_reextract or (bool(state.files) and state.profile != signature)
     if event_log.current_digest("sync:profile") != object_digest({"profile": signature}):
         event_log.append("sync.profile.updated", "sync_profile", "sync:profile",
                          {"profile": signature})
@@ -623,12 +672,13 @@ def seed_state(config: dict) -> dict:
         namespace = lib.get("urn_namespace")
         reg_prefix = lib.get("registry_path_prefix") or ""
         reg = _resolve_registry(lib)
+        sidecars = kg.load_sidecars(root)
         n = 0
         for rel, info in sorted(_walk(root, lib.get("exclude_prefixes", ["_"])).items()):
             abspath = info["abspath"]
             match_rel = (reg_prefix + rel) if reg_prefix else rel
             canonical, _prov = _resolve_identity(
-                reg, match_rel, abspath.name, abspath, profile, namespace)
+                reg, match_rel, abspath.name, abspath, profile, namespace, sidecars)
             st = abspath.stat()
             state_entry = {
                 "sha1": content_sha1(abspath), "canonical_urn": canonical,
