@@ -90,6 +90,23 @@ def test_overlay_is_never_corpus(tmp_path):
     assert not any("_overlay" in key for key in sync.SyncState(cfg["kg_root"]).files)
 
 
+def test_overlay_links_survive_renderer_hostile_filenames(tmp_path):
+    """Spaces and parentheses in corpus filenames must be percent-encoded in links."""
+    cfg = _config(tmp_path)
+    lib = Path(cfg["libraries"][0]["root_path"])
+    hostile = "2011 - report (1).txt"
+    _write(lib / "alpha" / hostile, DOC_ALPHA)
+    sync.sync_once(cfg)
+
+    write_overlay(cfg)
+    note = (lib / "_overlay" / "sources" / "alpha" / (hostile + ".md")).read_text(
+        encoding="utf-8")
+    assert "(../../../alpha/2011%20-%20report%20%281%29.txt)" in note
+    assert " " not in note.split("](")[1].split(")")[0]  # destination has no raw spaces
+    dashboard = (lib / "_overlay" / "domains" / "alpha.md").read_text(encoding="utf-8")
+    assert "%281%29" in dashboard and f"[alpha/{hostile}]" in dashboard
+
+
 def test_overlay_truncates_over_long_note_names(tmp_path):
     cfg = _config(tmp_path)
     lib = Path(cfg["libraries"][0]["root_path"])
