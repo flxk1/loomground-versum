@@ -16,6 +16,13 @@ these run in CI or ship as part of the installed package; they operate directly 
   citation stubs / sidecar-carried sources (before the Live Index honoured
   `*.metadata.json` sidecars). Read-only audit by default; `--apply` runs the sanctioned
   re-index cascade (`sync_once(..., force_reextract=True)`) — never hand-edits store CSVs.
+- `pair_stub_bytes.py` — files an arriving PDF onto an EXISTING citation stub's
+  identity instead of letting the default intake mint a fresh URN: matches the PDF to
+  its stub (URN / identifier / title against the live shelf sidecars), files it into
+  the stub's shelf folder with a `sidecar-pairing` sidecar carrying the stub's
+  `canonical_urn`, and flips the stub sidecar to `pdf_status: "available"`. Read-only
+  plan by default; `--apply` writes; an ambiguous match is refused, never guessed. The
+  next `sync` pass indexes the PDF under the stub URN (`kg-canonical`, zero mints).
 
 Run order when re-extracting: `reextract_full.py` first, then `curate_full.py` — curation
 reads the claims `reextract_full.py` just regenerated.
