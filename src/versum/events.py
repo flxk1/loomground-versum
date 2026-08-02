@@ -13,7 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+try:
+    import fcntl
+except ImportError:  # non-POSIX: no advisory locking; single-writer discipline applies
+    fcntl = None
+
 EVENT_LOG_FILE = "_events.jsonl"
+EVENT_LOCK_FILE = "_events.lock"
 EVENT_SCHEMA = "loomground.versum.event/v1"
 ABSENT_DIGEST = "sha256:" + hashlib.sha256(b"null").hexdigest()
 
@@ -83,14 +89,48 @@ def read_events(kg_root) -> tuple[dict, ...]:
 
 @dataclass
 class EventLog:
+    """The store's single append-only writer handle.
+
+    Constructing an ``EventLog`` takes an exclusive advisory lock on the store's
+    journal (``_events.lock``) and holds it until :meth:`close` (or process
+    exit). The journal is read only *after* the lock is held, so the in-memory
+    sequence view can never go stale under a concurrent writer — two syncs
+    against one store serialize instead of forking the event stream. Blocks
+    until the lock is free; readers (:func:`read_events`) are unaffected.
+    """
+
     root: Path
 
     def __init__(self, kg_root):
         self.root = Path(kg_root)
         self.path = self.root / EVENT_LOG_FILE
+        self.root.mkdir(parents=True, exist_ok=True)
+        self._lock_fh = open(self.root / EVENT_LOCK_FILE, "a")
+        if fcntl is not None:
+            fcntl.flock(self._lock_fh, fcntl.LOCK_EX)
         self._events = list(read_events(self.root))
         self._latest = {event["object_id"]: event["new_digest"]
                         for event in self._events}
+
+    def close(self) -> None:
+        """Release the journal lock; the instance must not append afterwards."""
+        if getattr(self, "_lock_fh", None) is not None:
+            if fcntl is not None:
+                fcntl.flock(self._lock_fh, fcntl.LOCK_UN)
+            self._lock_fh.close()
+            self._lock_fh = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:   # interpreter teardown may have dropped module globals
+            pass
 
     def current_digest(self, object_id: str) -> str:
         return self._latest.get(object_id, ABSENT_DIGEST)
@@ -131,6 +171,8 @@ class EventLog:
     def append(self, event_type: str, object_type: str, object_id: str,
                payload: dict, *, observed_at: str | None = None) -> dict:
         """Append one immutable event and return it."""
+        if getattr(self, "_lock_fh", None) is None:
+            raise ValueError("EventLog is closed — its journal lock has been released")
         if not event_type or not object_type or not object_id:
             raise ValueError("event_type, object_type, and object_id are required")
         sequence = len(self._events) + 1
