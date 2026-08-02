@@ -125,6 +125,35 @@ def test_overlay_truncates_over_long_note_names(tmp_path):
     assert report["libraries"][0]["removed"] == 0
 
 
+def test_sync_regenerates_overlay_when_configured(tmp_path):
+    import os
+    cfg = _config(tmp_path)
+    cfg["overlay"] = True
+    lib = Path(cfg["libraries"][0]["root_path"])
+    doc = lib / "alpha" / "a.txt"
+    _write(doc, DOC_ALPHA)
+
+    r = sync.sync_once(cfg)
+    assert r["overlay"][0]["sources"] == 1
+    assert (lib / "_overlay" / "index.md").exists()
+
+    st = doc.stat()
+    _write(doc, DOC_ALPHA + DOC_BETA)
+    os.utime(doc, (st.st_mtime + 10, st.st_mtime + 10))
+    sync.sync_once(cfg)  # the changed claims flow into the overlay in the same pass
+    note = (lib / "_overlay" / "sources" / "alpha" / "a.txt.md").read_text(encoding="utf-8")
+    assert "A gadget is defined as a device." in note
+
+
+def test_sync_without_overlay_config_writes_no_overlay(tmp_path):
+    cfg = _config(tmp_path)
+    lib = Path(cfg["libraries"][0]["root_path"])
+    _write(lib / "alpha" / "a.txt", DOC_ALPHA)
+    r = sync.sync_once(cfg)
+    assert "overlay" not in r
+    assert not (lib / "_overlay").exists()
+
+
 def test_overlay_refuses_a_dirname_the_walk_would_index(tmp_path):
     cfg = _config(tmp_path)
     Path(cfg["libraries"][0]["root_path"], "alpha").mkdir(parents=True)
