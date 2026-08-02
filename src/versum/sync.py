@@ -105,7 +105,9 @@ def _walk(root: Path, exclude_prefixes) -> dict:
     ``relpath`` is POSIX, relative to ``root``. ``domain`` is the first path component (or
     ``"_root"`` for a file directly under ``root``). A file inside a top-level subdirectory
     whose name starts with any ``exclude_prefix`` is skipped; files directly under ``root``
-    (domain ``_root``) are never excluded by a prefix rule. A KG citation stub (a ``.md``
+    (domain ``_root``) are never excluded by a prefix rule. A path with any hidden
+    (dot-prefixed) component is never a source — hidden files and directories are tool
+    state or filesystem cruft, not corpus. A KG citation stub (a ``.md``
     with a paired ``*.md.metadata.json`` sidecar) is never a source — its provenance is
     sidecar-carried, so it is excluded here exactly as :func:`versum.store.index.index_folder`
     skips it (a previously indexed stub thereby classifies as *removed* and its rows drop).
@@ -118,12 +120,14 @@ def _walk(root: Path, exclude_prefixes) -> dict:
     for p in sorted(root.rglob("*")):
         if not p.is_file():
             continue
+        rel = p.relative_to(root).as_posix()
+        parts = rel.split("/")
+        if any(part.startswith(".") for part in parts):
+            continue  # hidden tool state / filesystem cruft, never corpus
         if p.suffix.lower() not in SUPPORTED:
             continue
         if kg.is_kg_stub(p, root):
             continue  # KG citation stub — provenance only, never a claim source
-        rel = p.relative_to(root).as_posix()
-        parts = rel.split("/")
         if len(parts) > 1:
             top = parts[0]
             if any(top.startswith(pfx) for pfx in prefixes):

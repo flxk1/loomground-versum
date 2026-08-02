@@ -254,6 +254,30 @@ def test_exclude_prefixes(tmp_path):
     assert not (Path(cfg["kg_root"]) / "by-domain" / "_dupes").exists()
 
 
+def test_hidden_paths_are_never_sources(tmp_path):
+    """Hidden files/dirs are tool state or filesystem cruft, never corpus."""
+    cfg = _config(tmp_path)
+    lib = Path(cfg["libraries"][0]["root_path"])
+    _write(lib / "alpha" / "keep.txt", DOC_ALPHA)
+    _write(lib / ".toolstate" / "workspace.md", DOC_BETA)   # hidden dir, supported suffix
+    _write(lib / "alpha" / ".draft.md", DOC_GAMMA)          # hidden file in a real domain
+    (lib / "alpha" / ".DS_Store").write_bytes(b"\x00\x01Bud1\x80\xff")
+
+    r = sync.sync_once(cfg)
+    assert r["indexed"] == 1  # only alpha/keep.txt
+    assert r["errors"] == 0
+
+    state = sync.SyncState(cfg["kg_root"])
+    assert any("alpha/keep.txt" in k for k in state.files)
+    assert not any(".toolstate" in k or ".draft" in k for k in state.files)
+    assert not (Path(cfg["kg_root"]) / "by-domain" / ".toolstate").exists()
+
+    # a hidden dir appearing later never disturbs the indexed corpus
+    _write(lib / ".othertool" / "cache.md", DOC_BETA)
+    r2 = sync.sync_once(cfg)
+    assert (r2["new"], r2["changed"], r2["removed"], r2["errors"]) == (0, 0, 0, 0)
+
+
 # ── (g) sidecar reuse → canonical_urn + provenance kg-canonical ──
 def test_sidecar_urn_reuse(tmp_path):
     cfg = _config(tmp_path, with_registry=False)
