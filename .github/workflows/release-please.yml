@@ -22,7 +22,11 @@ jobs:
 
   publish:
     needs: release
-    if: ${{ needs.release.outputs.release-created == 'true' }}
+    # Skipped until a PyPI trusted publisher exists for this repo: set the
+    # repository variable PYPI_PUBLISHING to 'enabled' after configuring
+    # pypi.org (owner flxk1, repo loomground-versum, workflow
+    # release-please.yml, environment pypi).
+    if: ${{ needs.release.outputs.release-created == 'true' && vars.PYPI_PUBLISHING == 'enabled' }}
     runs-on: ubuntu-latest
     environment:
       name: pypi
