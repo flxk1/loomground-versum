@@ -27,6 +27,7 @@ Design:
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import io
 import json
@@ -450,7 +451,13 @@ def _paired_sidecar_urn(abspath) -> str | None:
     """
     p = Path(abspath)
     sc = p.with_name(p.name + ".metadata.json")
-    if not sc.exists():
+    try:
+        sidecar_exists = sc.exists()
+    except OSError as exc:
+        if exc.errno != errno.ENAMETOOLONG:
+            raise
+        sidecar_exists = False
+    if not sidecar_exists:
         return None
     try:
         d = json.loads(sc.read_text(encoding="utf-8"))
