@@ -90,6 +90,24 @@ def test_overlay_is_never_corpus(tmp_path):
     assert not any("_overlay" in key for key in sync.SyncState(cfg["kg_root"]).files)
 
 
+def test_overlay_truncates_over_long_note_names(tmp_path):
+    cfg = _config(tmp_path)
+    lib = Path(cfg["libraries"][0]["root_path"])
+    long_name = "x" * 250 + ".txt"   # at the filesystem's 255-byte component limit
+    _write(lib / "alpha" / long_name, DOC_ALPHA)
+    sync.sync_once(cfg)
+
+    write_overlay(cfg)
+    notes = [p for p in (lib / "_overlay" / "sources" / "alpha").iterdir()]
+    assert len(notes) == 1
+    assert len(notes[0].name.encode("utf-8")) <= 255
+    assert notes[0].read_text(encoding="utf-8").startswith(f"# alpha/{long_name}")
+
+    report = write_overlay(cfg)  # truncated name is stable across regenerations
+    assert report["libraries"][0]["written"] == 0
+    assert report["libraries"][0]["removed"] == 0
+
+
 def test_overlay_refuses_a_dirname_the_walk_would_index(tmp_path):
     cfg = _config(tmp_path)
     Path(cfg["libraries"][0]["root_path"], "alpha").mkdir(parents=True)
