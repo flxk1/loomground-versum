@@ -226,3 +226,61 @@ def test_change_feed_names_only_changed_source_and_exact_claims(tmp_path):
 def test_change_feed_rejects_invalid_watermark(tmp_path):
     with pytest.raises(ValueError, match="watermark"):
         changes_since(tmp_path, 1)
+
+
+def test_journal_lock_serializes_writers(tmp_path):
+    import threading
+    import time
+
+    from versum.events import EventLog
+
+    root = tmp_path / "kg"
+    a = EventLog(root)
+    seen: dict = {}
+
+    def second_writer():
+        b = EventLog(root)          # must block until the first writer releases
+        seen["events"] = len(b._events)
+        b.close()
+
+    t = threading.Thread(target=second_writer)
+    t.start()
+    time.sleep(0.3)
+    a.append("sync.profile.updated", "sync_profile", "sync:profile",
+             {"profile": {"id": "p"}})
+    assert "events" not in seen     # still waiting while the lock is held
+    a.close()
+    t.join(timeout=10)
+    assert seen["events"] == 1      # re-read AFTER the lock: saw the append
+
+    with pytest.raises(ValueError, match="closed"):
+        a.append("sync.profile.updated", "sync_profile", "sync:profile",
+                 {"profile": {"id": "q"}})
+
+
+def test_concurrent_syncs_cannot_fork_the_journal(tmp_path):
+    """The 2026-08-02 race: two simultaneous syncs must serialize, not interleave."""
+    import os
+    import subprocess
+    import sys
+
+    import versum
+
+    cfg = _config(tmp_path)
+    library = Path(cfg["libraries"][0]["root_path"])
+    for i in range(40):
+        _write(library / "alpha" / f"doc{i:02d}.txt", DOC_A)
+
+    code = ("import sys; from versum.sync import load_config, sync_once; "
+            "sync_once(load_config(sys.argv[1]))")
+    env = dict(os.environ, PYTHONPATH=str(Path(versum.__file__).parents[1]))
+    procs = [subprocess.Popen([sys.executable, "-c", code,
+                               str(tmp_path / "config.json")], env=env)
+             for _ in range(2)]
+    assert [p.wait(timeout=120) for p in procs] == [0, 0]
+
+    events = read_events(cfg["kg_root"])   # validates contiguity + digest chains
+    upserts = [e["object_id"] for e in events
+               if e["event_type"] == "source.upserted"]
+    assert len(upserts) == 40
+    assert len(set(upserts)) == 40         # each source recorded exactly once
