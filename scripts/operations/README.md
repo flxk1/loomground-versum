@@ -16,6 +16,11 @@ these run in CI or ship as part of the installed package; they operate directly 
   citation stubs / sidecar-carried sources (before the Live Index honoured
   `*.metadata.json` sidecars). Read-only audit by default; `--apply` runs the sanctioned
   re-index cascade (`sync_once(..., force_reextract=True)`) — never hand-edits store CSVs.
+- `dedupe_audit.py` — finds duplicate-identity sources (one canonical URN indexed at
+  several relpaths, double-counting claims). Read-only JSON report by default;
+  `--apply --quarantine-dir` moves non-keeper copies (with their sidecars) out of the
+  library — never deletes — so the next sync drops their rows through the sanctioned
+  removal path. Curated members need `--include-curated`; stale families never move.
 - `pair_stub_bytes.py` — files an arriving PDF onto an EXISTING citation stub's
   identity instead of letting the default intake mint a fresh URN: matches the PDF to
   its stub (URN / identifier / title against the live shelf sidecars), files it into
