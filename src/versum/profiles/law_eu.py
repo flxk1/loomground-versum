@@ -18,8 +18,13 @@ from ..profile import Profile, register
 
 # deterministic identity resolvers for this domain: the EU-law CELEX number first, then
 # the general scholarly schemes. The core never names CELEX; it lives here, in the profile.
+# The optional ``_SUM`` qualifier is part of the CELEX document id — a judgment's official
+# summary is a DISTINCT document from the judgment, and dropping the qualifier collapses
+# the two into one identity. Language codes (``_DE``/``_EN``) are presentation, not
+# identity, and stay outside the captured id.
 SOURCE_IDENTIFIERS = (
-    ("celex", re.compile(r"celex[\s:_-]*([0-9]{5}[a-z]{1,2}[0-9]{3,4})", re.IGNORECASE)),
+    ("celex", re.compile(r"celex[\s:_-]*([0-9]{5}[a-z]{1,2}[0-9]{3,4}(?:_sum)?)",
+                         re.IGNORECASE)),
     ("doi", re.compile(r"\b(10\.\d{4,9}/[-._;()/:a-z0-9]+)\b", re.IGNORECASE)),
     ("arxiv", re.compile(r"\b(\d{4}\.\d{4,5})(?:v\d+)?\b")),
 )
