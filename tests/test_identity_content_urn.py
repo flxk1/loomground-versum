@@ -93,3 +93,15 @@ def test_old_filename_fork_is_closed(tmp_path):
     y = tmp_path / "zzz.txt"; y.write_bytes(body)
     # OLD behaviour: urn:kg:source:aaa != urn:kg:source:zzz (a fork). NOW: equal.
     assert _urn(x) == _urn(y)
+
+
+def test_celex_summary_is_a_distinct_document(tmp_path):
+    """The _SUM qualifier is identity: a judgment and its official summary must not
+    collapse into one URN; language codes remain presentation and still collapse."""
+    law = get_profile("law-eu")
+    full = deterministic_identity(tmp_path / "CELEX_61980CJ0055_DE_TXT.pdf", law)
+    summary = deterministic_identity(tmp_path / "CELEX_61980CJ0055_SUM_DE_TXT.pdf", law)
+    english = deterministic_identity(tmp_path / "CELEX_61980CJ0055_EN_TXT.pdf", law)
+    assert full[0] == "urn:dls:celex:61980cj0055"
+    assert summary[0] == "urn:dls:celex:61980cj0055_sum"
+    assert english[0] == full[0]
