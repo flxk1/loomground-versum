@@ -105,3 +105,5 @@ def test_celex_summary_is_a_distinct_document(tmp_path):
     assert full[0] == "urn:dls:celex:61980cj0055"
     assert summary[0] == "urn:dls:celex:61980cj0055_sum"
     assert english[0] == full[0]
+    info = deterministic_identity(tmp_path / "CELEX_62005CJ0175_INF_DE_TXT.pdf", law)
+    assert info[0] == "urn:dls:celex:62005cj0175_inf"
