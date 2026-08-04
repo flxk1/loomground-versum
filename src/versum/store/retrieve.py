@@ -20,6 +20,7 @@ import csv
 import json
 import math
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -35,6 +36,48 @@ def tokenize(text: str) -> list[str]:
     return [t for t in _TOKEN_RE.findall((text or "").lower()) if len(t) >= 2]
 
 
+def _tokens_of(value) -> set:
+    """Token set for a single facet value — a string/number, or a list of them."""
+    if isinstance(value, (list, tuple, set)):
+        out: set = set()
+        for item in value:
+            out |= _tokens_of(item)
+        return out
+    if value in (None, ""):
+        return set()
+    return set(tokenize(str(value)))
+
+
+def query_tokens(query) -> set:
+    """Token bag for a keyword-overlap query.
+
+    ``query`` is a plain string (taken as the summary) or a mapping carrying a
+    ``summary`` and ``keywords``/``facets`` (each a list of terms, or a mapping whose
+    values are strings or lists). Tokenisation matches :func:`tokenize` throughout.
+    """
+    if isinstance(query, str):
+        return set(tokenize(query))
+    if isinstance(query, Mapping):
+        toks = set(tokenize(str(query.get("summary", ""))))
+        for key in ("keywords", "facets"):
+            raw = query.get(key)
+            if isinstance(raw, Mapping):
+                for v in raw.values():
+                    toks |= _tokens_of(v)
+            elif raw is not None:
+                toks |= _tokens_of(raw)
+        return toks
+    return set()
+
+
+def _doc_tokens(doc: "Doc") -> set:
+    """Token bag for a Doc: its text plus all of its facet values."""
+    toks = set(tokenize(doc.text))
+    for v in doc.facets.values():
+        toks |= _tokens_of(v)
+    return toks
+
+
 @dataclass
 class Doc:
     doc_id: str
@@ -45,6 +88,10 @@ class Doc:
     domain: str = ""
     library: str = ""
     concept_id: str = ""
+    #: A monotone recency signal (higher ⇒ more recent) used only to break ties in
+    #: keyword-overlap search. The store carries no wall-clock on claim rows, so it
+    #: defaults to 0.0; consumers that track recency may stamp it when building Docs.
+    recency: float = 0.0
 
 
 # ── sparse: Okapi BM25 ────────────────────────────────────────────
@@ -165,7 +212,8 @@ class SearchIndex:
         payload = {"format": "versum.search-index/v1", "docs": [
             {"doc_id": d.doc_id, "type": d.type, "text": d.text,
              "facets": d.facets, "canonical_urn": d.canonical_urn,
-             "domain": d.domain, "library": d.library, "concept_id": d.concept_id}
+             "domain": d.domain, "library": d.library, "concept_id": d.concept_id,
+             "recency": d.recency}
             for d in self.docs]}
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -225,6 +273,41 @@ class SearchIndex:
                         "snippet": d.text[:200]})
         return out
 
+    def search_similar(self, query, k: int = 10, filters: dict | None = None) -> list[dict]:
+        """Keyword-overlap (Jaccard) similarity search over claims/concepts.
+
+        A deterministic, dependency-free companion to :meth:`search` that ports the
+        keyword-overlap ranking of an upstream workspace memory into Versum. ``query`` is
+        a plain string (taken as the summary) or a mapping carrying a ``summary`` and
+        ``keywords``/``facets`` (see :func:`query_tokens`). Each candidate's token bag is
+        its text plus its facet values (:func:`_doc_tokens`); survivors are ranked by the
+        Jaccard similarity of the two bags, dropping zero-overlap docs. Ties are broken by
+        recency (higher :attr:`Doc.recency` first), then ``doc_id`` for a stable order.
+        ``filters`` scope the candidates exactly as :meth:`search`. Returns up to ``k``
+        hits in the same shape as :meth:`search`.
+        """
+        q_tokens = query_tokens(query)
+        cand = self._candidates(filters or {})
+        scored = []
+        if q_tokens:
+            for i in cand:
+                d_tokens = _doc_tokens(self.docs[i])
+                union = q_tokens | d_tokens
+                if not union:
+                    continue
+                sim = len(q_tokens & d_tokens) / len(union)
+                if sim > 0:
+                    scored.append((sim, i))
+        scored.sort(key=lambda si: (-si[0], -self.docs[si[1]].recency, self.docs[si[1]].doc_id))
+        out = []
+        for score, i in scored[:k]:
+            d = self.docs[i]
+            out.append({"doc_id": d.doc_id, "type": d.type, "score": round(score, 6),
+                        "canonical_urn": d.canonical_urn, "domain": d.domain,
+                        "library": d.library, "concept_id": d.concept_id,
+                        "snippet": d.text[:200]})
+        return out
+
 
 # ── KG loader ─────────────────────────────────────────────────────
 def _read_csv(path: Path):
@@ -234,9 +317,15 @@ def _read_csv(path: Path):
         return list(csv.DictReader((line.replace("\x00", "") for line in fh)))
 
 
-def docs_from_kg(kg_root, include_claims: bool = True, include_concepts: bool = True) -> list:
+def docs_from_kg(kg_root, include_claims: bool = True, include_concepts: bool = True,
+                 *, exclude_erased: bool = True) -> list:
     """Build the Doc set from a materialized KG: claim rows (by-domain/*/claims.csv) and canon
-    concepts (canon.json). Domain comes from the folder; facets are carried from the rows."""
+    concepts (canon.json). Domain comes from the folder; facets are carried from the rows.
+
+    ``exclude_erased`` (default) drops every node the erasure projection tombstones — both
+    logically deleted and purged claims/concepts/sources (see :mod:`versum.store.erasure`) —
+    so no read (``search`` / ``search_similar``) ever surfaces an erased item.
+    """
     kg_root = Path(kg_root).expanduser()
     bd = kg_root / "by-domain"
     root = bd if bd.is_dir() else kg_root
@@ -274,6 +363,10 @@ def docs_from_kg(kg_root, include_claims: bool = True, include_concepts: bool = 
                             "dimension": c.get("dimension", ""),
                             "polarity": c.get("polarity", ""),
                             "m": c.get("m", 1)}))
+    if exclude_erased:
+        from .erasure import load_tombstones  # stdlib-only reader; no write machinery
+        tombs = load_tombstones(kg_root)
+        docs = [d for d in docs if not tombs.hides(d.doc_id, d.canonical_urn)]
     return docs
 
 
