@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.8.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.7.0...loomground-versum-v0.8.0) (2026-08-04)
+
+
+### Features
+
+* dedupe-audit operation for duplicate-identity sources ([#11](https://github.com/flxk1/loomground-versum/issues/11)) ([a74c9fb](https://github.com/flxk1/loomground-versum/commit/a74c9fbe25906a343fdebf6d9e36cc66a5a279ac))
+* search the dimensioned-subgraph store (from_dimensioned_store) ([#15](https://github.com/flxk1/loomground-versum/issues/15)) ([71164f3](https://github.com/flxk1/loomground-versum/commit/71164f31f34882aff87ea1622952a855e194a4f3))
+* store search, erasure/GDPR-purge, publish + folder hierarchy ([#14](https://github.com/flxk1/loomground-versum/issues/14)) ([c417c91](https://github.com/flxk1/loomground-versum/commit/c417c91077e2860893bc29260c3b1aabfdddf121))
+
+
+### Bug Fixes
+
+* serialize store writers with an exclusive journal lock ([#9](https://github.com/flxk1/loomground-versum/issues/9)) ([ca03bfb](https://github.com/flxk1/loomground-versum/commit/ca03bfbdffbd3f4b779afa173f08e97255e2862b))
+* treat the CELEX _INF qualifier as document identity too ([#13](https://github.com/flxk1/loomground-versum/issues/13)) ([5b1f823](https://github.com/flxk1/loomground-versum/commit/5b1f8235e96076368549ae2f5ee44cdc15d14ed4))
+* treat the CELEX _SUM qualifier as document identity ([#12](https://github.com/flxk1/loomground-versum/issues/12)) ([0c8484d](https://github.com/flxk1/loomground-versum/commit/0c8484d3cbf09c25a60fee89d10a8e601bf50828))
+
 ## [0.7.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.6.4...loomground-versum-v0.7.0) (2026-08-02)
 
 
