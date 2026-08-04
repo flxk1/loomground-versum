@@ -217,14 +217,33 @@ def replay_events(events: Iterable[dict], target_root) -> dict:
                 target / "_nd_systems.json", target / "_graph_version.json"]
     if any(path.exists() for path in occupied):
         raise ValueError("replay target must not contain materialized store state")
+    from .store import distribution, erasure
+
     store = KGStore(target)
     state = SyncState(target)
     count = 0
+    saw_erasure = False
+    saw_distribution = False
     for event in events:
         count += 1
         kind = event["event_type"]
         payload = event["payload"]
-        if kind == "source.upserted":
+        if kind in distribution.DISTRIBUTION_EVENT_TYPES:
+            # Publish/unpublish change no content — only which items flow DOWN to
+            # descendants. The published set is refolded from the log below.
+            saw_distribution = True
+        elif kind in erasure.ERASURE_EVENT_TYPES:
+            # Logical delete/restore change no content; purge strips content from the
+            # replayed projection. The tombstone set is refolded from the log below.
+            saw_erasure = True
+            if kind == erasure.PURGE_EVENT:
+                if payload.get("target_type") == "claim":
+                    erasure._strip_claim_rows(target, item_id=payload["target_id"])
+                else:
+                    erasure._strip_concept(target, concept_id=payload["target_id"])
+            elif kind == erasure.SOURCE_PURGE_EVENT:
+                erasure._strip_source(target, payload["canonical_urn"])
+        elif kind == "source.upserted":
             store.append_source(
                 payload["domain"], payload["library"], payload["canonical_urn"],
                 payload["provenance"], payload["relpath"], payload["sha1"],
@@ -252,6 +271,10 @@ def replay_events(events: Iterable[dict], target_root) -> dict:
         else:
             raise ValueError(f"unsupported event type {kind!r}")
     state.save()
+    if saw_erasure:
+        erasure.rebuild_erasure_projection(target)
+    if saw_distribution:
+        distribution.rebuild_distribution_projection(target)
     version = mint_graph_version(target)
     stamp_graph_version(target, version)
     return {"events": count, "graph_version": version, "target": str(target)}
