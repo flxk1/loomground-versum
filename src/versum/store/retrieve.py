@@ -389,7 +389,7 @@ def _node_field(node: Mapping, props: Mapping, name: str):
     return props.get(name, "")
 
 
-def docs_from_dimensioned_store(store_root) -> list:
+def docs_from_dimensioned_store(store_root, *, exclude_erased: bool = True) -> list:
     """Build the Doc set from the canonical DimensionedSubgraphSink store.
 
     Reads every signed transaction under ``<store_root>/_dimensioned_subgraph_transactions``
@@ -399,6 +399,11 @@ def docs_from_dimensioned_store(store_root) -> list:
     ``{node_id, node_type, dimensions, properties}``; the deontic ingester's logical fields
     (``statement``, ``operator``, ``bearer``, ``action``, …) live under ``properties`` — this
     reader tolerates either shape.
+
+    ``exclude_erased`` (default) drops every sink node the erasure projection tombstones —
+    both logically deleted and purged nodes/sources (see :mod:`versum.store.erasure`) — so no
+    sink read ever surfaces an erased item. The tombstone set is keyed by the raw ``node_id``
+    (== ``Doc.doc_id``) and the subgraph ``source.source_id`` (== ``Doc.canonical_urn``).
     """
     from ..ingestion.subgraph import load_dimensioned_subgraphs  # avoid an import cycle
     docs: list = []
@@ -431,14 +436,21 @@ def docs_from_dimensioned_store(store_root) -> list:
             docs.append(Doc(
                 doc_id=str(doc_id), type=str(node_type), text=text,
                 facets=facets, canonical_urn=canonical_urn))
+    if exclude_erased:
+        from .erasure import load_tombstones  # stdlib-only reader; no write machinery
+        tombs = load_tombstones(store_root)
+        docs = [d for d in docs if not tombs.hides(d.doc_id, d.canonical_urn)]
     return docs
 
 
-def from_dimensioned_store(store_root, dense: Dense | None = None) -> SearchIndex:
+def from_dimensioned_store(store_root, dense: Dense | None = None, *,
+                           exclude_erased: bool = True) -> SearchIndex:
     """SearchIndex over the DimensionedSubgraphSink store (one Doc per subgraph node).
 
     Companion to :func:`from_kg` for the *other* persistence representation: the signed
     transactions written by :class:`versum.ingestion.subgraph.DimensionedSubgraphSink`.
-    ``search_similar`` works over the returned index unchanged.
+    ``search_similar`` works over the returned index unchanged. ``exclude_erased`` (default)
+    hides tombstoned sink nodes/sources (see :mod:`versum.store.erasure`).
     """
-    return SearchIndex(docs_from_dimensioned_store(store_root), dense=dense)
+    return SearchIndex(
+        docs_from_dimensioned_store(store_root, exclude_erased=exclude_erased), dense=dense)
