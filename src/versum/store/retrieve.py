@@ -372,3 +372,73 @@ def docs_from_kg(kg_root, include_claims: bool = True, include_concepts: bool = 
 
 def from_kg(kg_root, dense: Dense | None = None, **kw) -> SearchIndex:
     return SearchIndex(docs_from_kg(kg_root, **kw), dense=dense)
+
+
+# ── dimensioned-subgraph loader ───────────────────────────────────
+#: Controlled node fields carried through as Doc facets (the human-meaningful text —
+#: statement/bearer/action — goes into Doc.text, not here).
+_ND_FACET_FIELDS = ("operator", "bearer", "incident", "condition",
+                    "exception", "deadline", "sanction")
+
+
+def _node_field(node: Mapping, props: Mapping, name: str):
+    """Read a logical node field: top-level first (raw ingester node), else properties
+    (the persisted envelope shape, where the deontic fields live under ``properties``)."""
+    if name in node:
+        return node[name]
+    return props.get(name, "")
+
+
+def docs_from_dimensioned_store(store_root) -> list:
+    """Build the Doc set from the canonical DimensionedSubgraphSink store.
+
+    Reads every signed transaction under ``<store_root>/_dimensioned_subgraph_transactions``
+    (via :func:`versum.ingestion.subgraph.load_dimensioned_subgraphs`) and emits one Doc per
+    subgraph NODE, so sink-ingested content is searchable through the same ``search_similar``
+    ranking as the overlay/claims store. The persisted envelope node is
+    ``{node_id, node_type, dimensions, properties}``; the deontic ingester's logical fields
+    (``statement``, ``operator``, ``bearer``, ``action``, …) live under ``properties`` — this
+    reader tolerates either shape.
+    """
+    from ..ingestion.subgraph import load_dimensioned_subgraphs  # avoid an import cycle
+    docs: list = []
+    for graph in load_dimensioned_subgraphs(store_root):
+        source = graph.get("source") if isinstance(graph, Mapping) else None
+        canonical_urn = ""
+        if isinstance(source, Mapping):
+            canonical_urn = str(source.get("source_id") or "")
+        for node in graph.get("nodes", []):
+            if not isinstance(node, Mapping):
+                continue
+            props = node.get("properties") if isinstance(node.get("properties"), Mapping) else {}
+            doc_id = node.get("node_id") or node.get("id")
+            if not doc_id:
+                continue
+            node_type = (node.get("node_type") or node.get("kind")
+                         or props.get("kind") or "norm")
+            text = " ".join(
+                str(v) for v in (
+                    _node_field(node, props, "statement"),
+                    _node_field(node, props, "bearer"),
+                    _node_field(node, props, "action"),
+                ) if v not in (None, "")
+            )
+            facets: dict = {}
+            for fld in _ND_FACET_FIELDS:
+                val = _node_field(node, props, fld)
+                if val not in (None, "", [], {}):
+                    facets[fld] = val
+            docs.append(Doc(
+                doc_id=str(doc_id), type=str(node_type), text=text,
+                facets=facets, canonical_urn=canonical_urn))
+    return docs
+
+
+def from_dimensioned_store(store_root, dense: Dense | None = None) -> SearchIndex:
+    """SearchIndex over the DimensionedSubgraphSink store (one Doc per subgraph node).
+
+    Companion to :func:`from_kg` for the *other* persistence representation: the signed
+    transactions written by :class:`versum.ingestion.subgraph.DimensionedSubgraphSink`.
+    ``search_similar`` works over the returned index unchanged.
+    """
+    return SearchIndex(docs_from_dimensioned_store(store_root), dense=dense)
