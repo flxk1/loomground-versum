@@ -459,12 +459,12 @@ def from_dimensioned_store(store_root, dense: Dense | None = None, *,
 # ── full-record retrieval over the dimensioned-subgraph store ─────
 # ``search_similar`` / ``from_dimensioned_store`` return *lossy* hits — ``doc_id``, ``score``
 # and a text ``snippet[:200]`` — enough to rank, not enough to reconstruct a knowledge item.
-# A consumer that is retiring its own parallel store (RVND) must read the WHOLE record back:
-# the node itself (``node_type`` + ``dimensions`` + all ``properties``), every relation that
-# touches it (in *both* directions), and the transaction's ``source`` / ``evidence``
-# provenance — so it can rebuild a knowledge "pair" and apply its OWN enforcement over it
-# (redaction, lock/seal, source scoping). Versum owns storage + retrieval and returns the
-# full record; it does NOT apply redaction or lock/seal — those stay in the consumer.
+# A consumer that reads knowledge back out of the sink must read the WHOLE record: the node
+# itself (``node_type`` + ``dimensions`` + all ``properties``), every relation that touches it
+# (in *both* directions), and the transaction's ``source`` / ``evidence`` provenance — so it can
+# reconstruct the knowledge item and apply its OWN enforcement over it (redaction, lock/seal,
+# source scoping). Versum owns storage + retrieval and returns the full record; it does NOT
+# apply redaction or lock/seal — those stay in the consumer.
 #
 # The record shape (a plain JSON-able dict; :func:`search_records` adds a ``"score"``)::
 #
