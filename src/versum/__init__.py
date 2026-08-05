@@ -15,7 +15,7 @@ from .ingestion import (
     UpsertReceipt,
     load_dimensioned_subgraphs,
 )
-from .store.retrieve import get_record, search_records
+from .store.retrieve import get_record, iter_records, search_records
 
 __all__ = [
     "DimensionedSubgraph",
@@ -29,6 +29,7 @@ __all__ = [
     "append_record",
     "fact_node_ids",
     "get_record",
+    "iter_records",
     "load_dimensioned_subgraphs",
     "search_records",
 ]

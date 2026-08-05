@@ -528,6 +528,25 @@ def _iter_node_records(store_root):
             yield str(node_id), canonical_urn, _full_record(graph, node, canonical_urn)
 
 
+def iter_records(store_root, *, exclude_erased: bool = True):
+    """Yield the FULL record for every node in the sink, honoring erasure.
+
+    The enumeration companion to :func:`get_record` (by id) and
+    :func:`search_records` (by query): for a consumer that must list or re-index
+    everything the store holds — e.g. rebuild a folder view or union the sink with
+    another source. Each record has the same shape as :func:`get_record`
+    (``{node_id, node_type, dimensions, properties, source, evidence, relations}``).
+    Tombstoned nodes/sources are hidden when ``exclude_erased`` (default), exactly
+    as they are hidden from ``get_record`` / ``search_records``.
+    """
+    from .erasure import load_tombstones  # stdlib-only reader; no write machinery
+    tombs = load_tombstones(store_root) if exclude_erased else None
+    for nid, canonical_urn, record in _iter_node_records(store_root):
+        if tombs is not None and tombs.hides(nid, canonical_urn):
+            continue
+        yield record
+
+
 def get_record(store_root, node_id) -> dict | None:
     """The FULL record for one dimensioned-subgraph node, or ``None`` if absent/erased.
 
