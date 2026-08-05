@@ -65,3 +65,15 @@ def test_append_record_no_edges_is_valid(tmp_path):
     minimal = {"id": "x:1", "problem": {"summary": "q"}, "solution": {"body": "a"}}
     receipt = append_record(root, record=minimal, dimension="relational", actor="a")
     assert receipt["status"] == "inserted"
+
+
+def test_iter_records_enumerates_all(tmp_path):
+    root = _store(tmp_path)
+    append_record(root, record=_PAIR, dimension="relational", actor="t")
+    append_record(root, record={"id": "x:2", "problem": {"summary": "other q"},
+                                "solution": {"body": "b"}},
+                  dimension="relational", actor="t")
+    recs = list(versum.iter_records(root))
+    ids = {r["properties"]["record"]["id"] for r in recs
+           if isinstance(r.get("properties", {}).get("record"), dict)}
+    assert {"sha256:deadbeef", "x:2"} <= ids
