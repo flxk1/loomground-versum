@@ -34,6 +34,10 @@ def test_get_record_returns_node_relation_and_provenance(tmp_path):
     assert record["dimensions"]["causal"] == "data protection"
     assert record["properties"]["statement"] == "controller must ensure data protection"
     assert record["properties"]["kind"] == "runtime-fact"
+    # The full record surfaces the explicit runtime provenance class (not span-grounded), so a
+    # consumer can apply its own enforcement knowing the node was asserted at runtime.
+    assert record["properties"]["grounding"] == "runtime"
+    assert record["properties"]["actor"] == "rvnd-agent"
 
     # Every relation touching the node (both directions). The subject is the source end.
     assert len(record["relations"]) == 1

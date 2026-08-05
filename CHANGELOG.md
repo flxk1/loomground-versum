@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.8.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.7.0...loomground-versum-v0.8.0) (2026-08-05)
+
+
+### Features
+
+* runtime knowledge-append API — `append_fact` / `append_inference` write source-less runtime knowledge (a fact triple, a reasoning path) through the canonical dimensioned-subgraph sink as an explicitly-marked runtime provenance class (`grounding="runtime"`, no manufactured grounding), idempotent and searchable through the existing read path ([7cd44cf](https://github.com/flxk1/loomground-versum/commit/7cd44cfcca72d8c57a8c2b938e85a5cf5a07f222))
+* full-record retrieval over the sink — `get_record` / `search_records` return the whole node (type + dimensions + all properties), every relation touching it (both directions) and the transaction's `source` / `evidence` provenance, not a lossy snippet ([d94151f](https://github.com/flxk1/loomground-versum/commit/d94151f5909ac4b7858fa9b849d221433a335d42))
+* search the dimensioned-subgraph store via `from_dimensioned_store` (one Doc per subgraph node, ranked by the shared `search_similar`) ([71164f3](https://github.com/flxk1/loomground-versum/commit/71164f31f34882aff87ea1622952a855e194a4f3))
+* store search, erasure / GDPR-purge, publish + folder hierarchy over the sink store ([c417c91](https://github.com/flxk1/loomground-versum/commit/c417c91077e2860893bc29260c3b1aabfdddf121))
+* honor erasure / distribution / hierarchy in the sink store ([9090d65](https://github.com/flxk1/loomground-versum/commit/9090d65ff47e36629a894e2ea8d4b037a29fd63f))
+* dedupe-audit operation for duplicate-identity sources ([a74c9fb](https://github.com/flxk1/loomground-versum/commit/a74c9fbe25906a343fdebf6d9e36cc66a5a279ac))
+
+
+### Bug Fixes
+
+* serialize store writers with an exclusive journal lock ([ca03bfb](https://github.com/flxk1/loomground-versum/commit/ca03bfbdffbd3f4b779afa173f08e97255e2862b))
+* treat the CELEX `_SUM` qualifier as document identity ([0c8484d](https://github.com/flxk1/loomground-versum/commit/0c8484d3cbf09c25a60fee89d10a8e601bf50828))
+* treat the CELEX `_INF` qualifier as document identity too ([5b1f823](https://github.com/flxk1/loomground-versum/commit/5b1f8235e96076368549ae2f5ee44cdc15d14ed4))
+
+
+### Build System
+
+* gate the PyPI publish behind the `PYPI_PUBLISHING` repo variable ([0ba5325](https://github.com/flxk1/loomground-versum/commit/0ba5325048e7da7fdd947c955a7515723d8148e6))
+
 ## [0.7.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.6.4...loomground-versum-v0.7.0) (2026-08-02)
 
 
