@@ -398,6 +398,105 @@ def append_inference(store_root: str | Path, *, path: Sequence[Mapping[str, Any]
     return _upsert(store_root, envelope)
 
 
+def _facet_text(facets: Any) -> str:
+    """Flatten facet values (nested dicts/lists of scalars) into searchable text.
+
+    Used only to build the node's ``statement`` so a record is findable through
+    ``search_similar``; the FULL structured facets are preserved verbatim in the
+    node's ``properties.record`` (no lowering, no loss)."""
+    out: list[str] = []
+
+    def _walk(value: Any) -> None:
+        if isinstance(value, Mapping):
+            for v in value.values():
+                _walk(v)
+        elif isinstance(value, (list, tuple)):
+            for v in value:
+                _walk(v)
+        elif isinstance(value, str):
+            if value.strip():
+                out.append(value.strip())
+        elif isinstance(value, (int, float, bool)):
+            out.append(str(value))
+
+    _walk(facets)
+    return " ".join(out)
+
+
+def append_record(store_root: str | Path, *, record: Mapping[str, Any],
+                  dimension: str, actor: str, observed_at: str | None = None,
+                  captures: Sequence[Mapping[str, Any]] | None = None) -> UpsertReceipt:
+    """Append a full runtime **record** — an RVND-style problem/solution pair — as
+    first-class runtime knowledge. The rich analogue of :func:`append_fact`: where
+    a fact is a triple, a record is a whole pair (problem + solution + arbitrary
+    domain facets + edges).
+
+    The **complete record body rides losslessly** in the node's
+    ``properties.record`` (no facet lowering — every domain nD facet is preserved
+    verbatim); a searchable ``statement`` is derived from the problem summary,
+    solution body and facet values so the record is findable through
+    ``search_similar`` / :func:`versum.store.retrieve.search_records`. The node is
+    stamped ``grounding="runtime"`` (asserted by an actor, not span-grounded), the
+    same explicit provenance class as :func:`append_fact`. A record with no edges
+    yields a single node and no relations (the sink permits empty ``relations``).
+
+    Idempotent by the canonical content of ``(record, dimension, actor)``: an
+    identical re-append is a no-op (receipt ``status="unchanged"``); a changed
+    record is new knowledge under a new key. ``observed_at`` is metadata, not part
+    of the key. ``captures`` attaches LLM/web provenance as extra evidence.
+    """
+    if not isinstance(record, Mapping):
+        raise RuntimeCaptureError("record must be a mapping (an RVND-style pair)")
+    axis = _axis(dimension)
+    if not isinstance(actor, str) or not actor.strip():
+        raise RuntimeCaptureError("actor must be a non-empty string")
+
+    rec = json.loads(_canonical_bytes(dict(record)))  # normalized, JSON-safe copy
+    rec_id = str(rec.get("id") or "").strip() or ("record:" + _short(rec))
+    problem = rec.get("problem") if isinstance(rec.get("problem"), Mapping) else {}
+    solution = rec.get("solution") if isinstance(rec.get("solution"), Mapping) else {}
+    summary = str(problem.get("summary") or "")
+    body = str(solution.get("body") or "")
+    statement = " ".join(
+        t for t in (summary, body, _facet_text(problem.get("facets"))) if t
+    ) or rec_id
+
+    knowledge = {"kind": "record", "record": rec, "dimension": axis, "actor": actor}
+    idempotency_key = "runtime-record:" + _short(knowledge)
+
+    source = _runtime_source(actor)
+    evidence, _evidence_ids = _evidence_entries(
+        actor, source["source_id"], observed_at, idempotency_key, captures)
+
+    node = {
+        "node_id": f"record:{_slug(rec_id)}:{_short(rec)}",
+        "node_type": "record",
+        "dimensions": {axis: rec_id},
+        "properties": {
+            "name": rec_id,
+            "statement": statement,
+            "bearer": summary,
+            "action": body,
+            "kind": "runtime-record",
+            "grounding": RUNTIME_GROUNDING,
+            "actor": actor,
+            "record": rec,  # the FULL pair body — lossless, every facet preserved
+        },
+    }
+
+    envelope = {
+        "schema": SCHEMA,
+        "idempotency_key": idempotency_key,
+        "source": source,
+        "evidence": evidence,
+        "nd": {"facet": "nD", "system_id": SYSTEM_ID,
+               "dimension_count": 1, "axes": [axis]},
+        "nodes": [node],
+        "relations": [],
+    }
+    return _upsert(store_root, envelope)
+
+
 def fact_node_ids(*, subject: str, object: str) -> tuple[str, str]:
     """The (subject, object) node ids :func:`append_fact` mints — for callers that need to
     address a runtime node afterwards (e.g. erasure via the ``"sink:"`` convention)."""
