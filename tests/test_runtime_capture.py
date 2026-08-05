@@ -14,7 +14,12 @@ The sink contract and the file-ingest path are untouched; capture is purely addi
 import pytest
 
 from versum import append_fact, append_inference, fact_node_ids
-from versum.capture import RuntimeCaptureError
+from versum.capture import (
+    RUNTIME_ASSERTION_DIGEST,
+    RUNTIME_GROUNDING,
+    RuntimeCaptureError,
+    _digest,
+)
 from versum.ingestion import IdempotencyConflictError, load_dimensioned_subgraphs
 from versum.store import erasure
 from versum.store.retrieve import from_dimensioned_store
@@ -100,6 +105,56 @@ def test_unrelated_query_finds_nothing(tmp_path):
                 dimension="geography", actor="a")
     idx = from_dimensioned_store(store)
     assert idx.search_similar("wholly unrelated vocabulary", k=5) == []
+
+
+# ── runtime knowledge is an EXPLICIT provenance class, not fake grounding ─────
+def test_runtime_provenance_is_marked_and_not_self_referential(tmp_path):
+    """Runtime knowledge is asserted-by-an-actor, not span-grounded: the envelope must SAY so
+    (grounding markers) and must NOT manufacture grounding by hashing the assertion itself."""
+    store = _store(tmp_path)
+    append_fact(store, subject="Alice", predicate="located in", object="Berlin",
+                dimension="geography", actor="rvnd-agent")
+    graph = load_dimensioned_subgraphs(store)[0]
+
+    # Every node and relation is stamped as a runtime provenance class, with the asserting
+    # actor — a consumer can tell it apart from a span-grounded node.
+    for node in graph["nodes"]:
+        assert node["properties"]["grounding"] == RUNTIME_GROUNDING
+        assert node["properties"]["actor"] == "rvnd-agent"
+    for relation in graph["relations"]:
+        assert relation["properties"]["grounding"] == RUNTIME_GROUNDING
+
+    # The digest that the OLD, dishonest implementation used as both source and evidence
+    # "grounding": a hash of the assertion itself.
+    self_referential = _digest({
+        "kind": "fact", "subject": "Alice", "predicate": "located in", "object": "Berlin",
+        "dimension": "geography", "actor": "rvnd-agent"})
+
+    # Source content_digest is the runtime source IDENTITY marker, never the assertion hash.
+    assert graph["source"]["content_digest"].startswith("sha256:")
+    assert graph["source"]["content_digest"] != self_referential
+
+    # The single runtime evidence entry is an assertion RECORD (who/when), not a grounding
+    # span: its content_digest is the fixed 'no grounded span' marker, not the assertion hash.
+    runtime_evidence = graph["evidence"][0]
+    assert runtime_evidence["content_digest"] == RUNTIME_ASSERTION_DIGEST
+    assert runtime_evidence["content_digest"] != self_referential
+    # source and evidence are distinct markers — grounding is not a single self-referential hash.
+    assert graph["source"]["content_digest"] != runtime_evidence["content_digest"]
+
+
+def test_capture_content_digest_hashes_the_capture_not_the_assertion(tmp_path):
+    """An attached llm/web capture is provenance: its content_digest honestly hashes the
+    capture content (real bytes), distinct from the runtime assertion marker."""
+    store = _store(tmp_path)
+    content = "Berlin is the capital of Germany."
+    append_fact(store, subject="Berlin", predicate="capital of", object="Germany",
+                dimension="geography", actor="rvnd-agent",
+                captures=[{"kind": "llm_answer", "content": content}])
+    graph = load_dimensioned_subgraphs(store)[0]
+    capture = next(e for e in graph["evidence"] if e["evidence_id"].startswith("evidence:llm"))
+    assert capture["content_digest"] == _digest(content)
+    assert capture["content_digest"] != RUNTIME_ASSERTION_DIGEST
 
 
 # ── append_inference → node/relation chain round-trip ────────────────────────
