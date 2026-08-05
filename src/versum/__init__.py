@@ -4,6 +4,7 @@ from .capture import (
     RuntimeCaptureError,
     append_fact,
     append_inference,
+    append_record,
     fact_node_ids,
 )
 from .ingestion import (
@@ -25,6 +26,7 @@ __all__ = [
     "UpsertReceipt",
     "append_fact",
     "append_inference",
+    "append_record",
     "fact_node_ids",
     "get_record",
     "load_dimensioned_subgraphs",
