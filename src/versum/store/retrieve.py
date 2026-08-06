@@ -519,8 +519,19 @@ def _iter_node_records(store_root):
 
     No erasure filtering here — callers apply their own tombstone policy. ``canonical_urn`` is
     the subgraph ``source.source_id`` (the same key erasure tombstones a source under).
+
+    **Identity-upsert latest-wins:** a node carrying ``properties._version`` is an
+    identity record (see :func:`versum.capture.append_record` ``identity=True``) —
+    a MUTABLE entity whose stable node id recurs across transactions, one per edit.
+    Only these are collapsed to their highest ``_version`` (lexicographic), so a
+    consumer reads the current state, not every superseded revision. Every other
+    node — content-addressed records, fact/entity nodes — streams unchanged (their
+    ids embed a content hash, so they never collide and the collapse never touches
+    them). The append-only transaction log is untouched; this is a read projection.
     """
     from ..ingestion.subgraph import load_dimensioned_subgraphs  # avoid an import cycle
+    identity_latest: dict = {}   # node_id -> (version_str, (node_id, canonical_urn, record))
+    identity_order: list = []
     for graph in load_dimensioned_subgraphs(store_root):
         if not isinstance(graph, Mapping):
             continue
@@ -532,7 +543,20 @@ def _iter_node_records(store_root):
             node_id = node.get("node_id") or node.get("id")
             if not node_id:
                 continue
-            yield str(node_id), canonical_urn, _full_record(graph, node, canonical_urn)
+            nid = str(node_id)
+            props = node.get("properties")
+            version = props.get("_version") if isinstance(props, Mapping) else None
+            record = _full_record(graph, node, canonical_urn)
+            if version is None:
+                yield nid, canonical_urn, record            # unchanged streaming
+                continue
+            prev = identity_latest.get(nid)                 # identity: keep latest only
+            if prev is None:
+                identity_order.append(nid)
+            if prev is None or str(version) > prev[0]:
+                identity_latest[nid] = (str(version), (nid, canonical_urn, record))
+    for nid in identity_order:
+        yield identity_latest[nid][1]
 
 
 def iter_records(store_root, *, exclude_erased: bool = True):
