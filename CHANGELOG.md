@@ -1,10 +1,13 @@
 # Changelog
 
-## [0.8.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.7.0...loomground-versum-v0.8.0) (2026-08-05)
+## [0.9.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.7.0...loomground-versum-v0.9.0) (2026-08-06)
 
 
 ### Features
 
+* `append_record` — a full runtime **record** (an RVND-style problem/solution pair with arbitrary domain facets) as first-class knowledge, the rich analogue of `append_fact`; the whole pair body rides losslessly in the node's `properties.record`, searchable through the existing read path ([e1cf3e2](https://github.com/flxk1/loomground-versum/commit/e1cf3e2))
+* `iter_records` — erasure-honoring enumeration of the sink, the companion to `get_record` (by id) and `search_records` (by query) for consumers that must list or re-index everything the store holds ([5c17d69](https://github.com/flxk1/loomground-versum/commit/5c17d69))
+* `BM25.score` optional `weights=` — down-weight expanded/synonym query terms; `weights=None` is exactly the historical unweighted score (backward-compatible), so a consumer can keep query-expansion weighting while consuming versum's BM25 ([f201e07](https://github.com/flxk1/loomground-versum/commit/f201e07))
 * runtime knowledge-append API — `append_fact` / `append_inference` write source-less runtime knowledge (a fact triple, a reasoning path) through the canonical dimensioned-subgraph sink as an explicitly-marked runtime provenance class (`grounding="runtime"`, no manufactured grounding), idempotent and searchable through the existing read path ([7cd44cf](https://github.com/flxk1/loomground-versum/commit/7cd44cfcca72d8c57a8c2b938e85a5cf5a07f222))
 * full-record retrieval over the sink — `get_record` / `search_records` return the whole node (type + dimensions + all properties), every relation touching it (both directions) and the transaction's `source` / `evidence` provenance, not a lossy snippet ([d94151f](https://github.com/flxk1/loomground-versum/commit/d94151f5909ac4b7858fa9b849d221433a335d42))
 * search the dimensioned-subgraph store via `from_dimensioned_store` (one Doc per subgraph node, ranked by the shared `search_similar`) ([71164f3](https://github.com/flxk1/loomground-versum/commit/71164f31f34882aff87ea1622952a855e194a4f3))
