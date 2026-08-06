@@ -120,7 +120,13 @@ class BM25:
         self.idf = {t: math.log(1 + (self.N - c + 0.5) / (c + 0.5)) for t, c in df.items()}
         return self
 
-    def score(self, q_tokens, i: int) -> float:
+    def score(self, q_tokens, i: int, *, weights=None) -> float:
+        """Okapi BM25 score of document ``i`` for the query terms.
+
+        ``weights`` optionally maps a query term to a multiplier (default 1.0),
+        so a caller can down-weight expanded/synonym terms relative to the
+        originals. ``weights=None`` is exactly the historical unweighted score.
+        """
         if not self.avgdl:
             return 0.0
         dl = self.doc_len[i]
@@ -130,7 +136,8 @@ class BM25:
             f = tfi.get(t)
             if not f:
                 continue
-            s += self.idf.get(t, 0.0) * (f * (self.k1 + 1)) / (
+            w = 1.0 if weights is None else float(weights.get(t, 1.0))
+            s += w * self.idf.get(t, 0.0) * (f * (self.k1 + 1)) / (
                 f + self.k1 * (1 - self.b + self.b * dl / self.avgdl))
         return s
 
