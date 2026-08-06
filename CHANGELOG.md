@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.11.0...loomground-versum-v0.12.0) (2026-08-06)
+
+
+### Features
+
+* `iter_records_from_transactions` + `tombstones_from_bytes` — read the sink's records from IN-MEMORY transaction payloads instead of an on-disk store, so a consumer serving a *sealed* workspace (whose decrypted transactions live only in memory, never plaintext on disk) can read knowledge without materialising the store. Same identity-upsert latest-wins projection and record shape as `iter_records`; `tombstones_from_bytes` builds the erasure projection from the `_erasure.json` bytes. Unblocks the RVND memory-split body-drop over sealed workspaces.
+
 ## [0.11.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.10.0...loomground-versum-v0.11.0) (2026-08-06)
 
 
