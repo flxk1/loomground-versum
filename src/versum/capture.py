@@ -425,7 +425,8 @@ def _facet_text(facets: Any) -> str:
 
 def append_record(store_root: str | Path, *, record: Mapping[str, Any],
                   dimension: str, actor: str, observed_at: str | None = None,
-                  captures: Sequence[Mapping[str, Any]] | None = None) -> UpsertReceipt:
+                  captures: Sequence[Mapping[str, Any]] | None = None,
+                  identity: bool = False, version: str | None = None) -> UpsertReceipt:
     """Append a full runtime **record** — an RVND-style problem/solution pair — as
     first-class runtime knowledge. The rich analogue of :func:`append_fact`: where
     a fact is a triple, a record is a whole pair (problem + solution + arbitrary
@@ -440,16 +441,41 @@ def append_record(store_root: str | Path, *, record: Mapping[str, Any],
     same explicit provenance class as :func:`append_fact`. A record with no edges
     yields a single node and no relations (the sink permits empty ``relations``).
 
-    Idempotent by the canonical content of ``(record, dimension, actor)``: an
-    identical re-append is a no-op (receipt ``status="unchanged"``); a changed
-    record is new knowledge under a new key. ``observed_at`` is metadata, not part
-    of the key. ``captures`` attaches LLM/web provenance as extra evidence.
+    **Two identity modes** — the sink stays an append-only, replayable transaction
+    log in both; they differ only in how the node is keyed and read back:
+
+      * **content-addressed** (default, ``identity=False``): the node id embeds a
+        content hash — ``record:<slug>:<short>``. Idempotent by the canonical
+        content of ``(record, dimension, actor)``: an identical re-append is a
+        no-op (``status="unchanged"``); a *changed* record is new knowledge under
+        a NEW node id. Every version coexists on read. This is the shape the
+        memory-split and every existing caller rely on — unchanged.
+
+      * **identity-upsert** (``identity=True``, requires a monotonic ``version``):
+        the node id is *stable* — ``record:<slug>`` (no content hash) — so a
+        MUTABLE entity (a grounder work/claim edited in place) supersedes its
+        prior state instead of forking a node per edit. ``version`` (any
+        lexicographically-monotonic string per id, e.g. an ISO ``last_seen``) is
+        folded into the idempotency key — so ``(id, version)`` is an *immutable
+        revision*: re-appending the same body+version is a no-op, a bumped
+        ``version`` writes a new transaction under the same node id, and the read
+        projection (:func:`versum.store.retrieve` — ``iter_records`` /
+        ``get_record`` / ``search_records``) returns only the LATEST version per
+        id. Content-addressed nodes never share an id, so latest-wins is a no-op
+        for them; the behaviour change is confined to identity records.
+
+    ``observed_at`` is metadata (not part of the key). ``captures`` attaches
+    LLM/web provenance as extra evidence.
     """
     if not isinstance(record, Mapping):
         raise RuntimeCaptureError("record must be a mapping (an RVND-style pair)")
     axis = _axis(dimension)
     if not isinstance(actor, str) or not actor.strip():
         raise RuntimeCaptureError("actor must be a non-empty string")
+    if identity and not (isinstance(version, str) and version.strip()):
+        raise RuntimeCaptureError(
+            "identity-upsert requires a non-empty monotonic `version` "
+            "(e.g. the record's last_seen) — it keys the immutable revision")
 
     rec = json.loads(_canonical_bytes(dict(record)))  # normalized, JSON-safe copy
     rec_id = str(rec.get("id") or "").strip() or ("record:" + _short(rec))
@@ -462,26 +488,37 @@ def append_record(store_root: str | Path, *, record: Mapping[str, Any],
     ) or rec_id
 
     knowledge = {"kind": "record", "record": rec, "dimension": axis, "actor": actor}
+    if identity:
+        # version enters the key → (id, version) is an immutable revision; a
+        # bumped version is a new transaction the read side resolves latest-wins.
+        knowledge = {**knowledge, "identity": True, "version": version}
     idempotency_key = "runtime-record:" + _short(knowledge)
 
     source = _runtime_source(actor)
     evidence, _evidence_ids = _evidence_entries(
         actor, source["source_id"], observed_at, idempotency_key, captures)
 
+    node_id = (f"record:{_slug(rec_id)}" if identity
+               else f"record:{_slug(rec_id)}:{_short(rec)}")
+    properties = {
+        "name": rec_id,
+        "statement": statement,
+        "bearer": summary,
+        "action": body,
+        "kind": "runtime-record",
+        "grounding": RUNTIME_GROUNDING,
+        "actor": actor,
+        "record": rec,  # the FULL pair body — lossless, every facet preserved
+    }
+    if identity:
+        # the read-side latest-wins ordering key; its presence also MARKS this
+        # node as an identity record (only these are deduped on read).
+        properties["_version"] = version
     node = {
-        "node_id": f"record:{_slug(rec_id)}:{_short(rec)}",
+        "node_id": node_id,
         "node_type": "record",
         "dimensions": {axis: rec_id},
-        "properties": {
-            "name": rec_id,
-            "statement": statement,
-            "bearer": summary,
-            "action": body,
-            "kind": "runtime-record",
-            "grounding": RUNTIME_GROUNDING,
-            "actor": actor,
-            "record": rec,  # the FULL pair body — lossless, every facet preserved
-        },
+        "properties": properties,
     }
 
     envelope = {
