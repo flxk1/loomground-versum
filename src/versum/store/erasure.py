@@ -87,6 +87,16 @@ class Tombstones:
                 or (bool(canonical_urn) and canonical_urn in self.hidden_sources))
 
 
+def _tombstones_from_data(data: dict) -> Tombstones:
+    return Tombstones(
+        deleted_nodes=frozenset(data.get("deleted_nodes", [])),
+        purged_nodes=frozenset(data.get("purged_nodes", [])),
+        deleted_sources=frozenset(data.get("deleted_sources", [])),
+        purged_sources=frozenset(data.get("purged_sources", [])),
+        records=tuple(data.get("records", [])),
+    )
+
+
 def load_tombstones(kg_root) -> Tombstones:
     """Read the erasure projection (``_erasure.json``); an absent file means nothing is erased.
 
@@ -99,13 +109,22 @@ def load_tombstones(kg_root) -> Tombstones:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return Tombstones()
-    return Tombstones(
-        deleted_nodes=frozenset(data.get("deleted_nodes", [])),
-        purged_nodes=frozenset(data.get("purged_nodes", [])),
-        deleted_sources=frozenset(data.get("deleted_sources", [])),
-        purged_sources=frozenset(data.get("purged_sources", [])),
-        records=tuple(data.get("records", [])),
-    )
+    return _tombstones_from_data(data)
+
+
+def tombstones_from_bytes(erasure_bytes: bytes | str | None) -> Tombstones:
+    """Build the erasure projection from the ``_erasure.json`` *bytes* rather than a
+    on-disk path — for a consumer serving a sealed workspace from its in-memory
+    store (the sealed blob carries the erasure file, never plaintext on disk). An
+    empty/absent/corrupt input means nothing is erased."""
+    if not erasure_bytes:
+        return Tombstones()
+    try:
+        text = (erasure_bytes.decode("utf-8")
+                if isinstance(erasure_bytes, bytes) else str(erasure_bytes))
+        return _tombstones_from_data(json.loads(text))
+    except Exception:
+        return Tombstones()
 
 
 # ── node-id parsing ───────────────────────────────────────────────

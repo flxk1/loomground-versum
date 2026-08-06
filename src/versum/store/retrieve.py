@@ -530,9 +530,17 @@ def _iter_node_records(store_root):
     them). The append-only transaction log is untouched; this is a read projection.
     """
     from ..ingestion.subgraph import load_dimensioned_subgraphs  # avoid an import cycle
+    yield from _records_from_graphs(load_dimensioned_subgraphs(store_root))
+
+
+def _records_from_graphs(graphs):
+    """The shared node→record projection (identity-upsert latest-wins) over an
+    iterable of already-loaded subgraph envelopes — used by both the on-disk reader
+    (:func:`_iter_node_records`) and the in-memory reader
+    (:func:`iter_records_from_transactions`)."""
     identity_latest: dict = {}   # node_id -> (version_str, (node_id, canonical_urn, record))
     identity_order: list = []
-    for graph in load_dimensioned_subgraphs(store_root):
+    for graph in graphs:
         if not isinstance(graph, Mapping):
             continue
         source = graph.get("source")
@@ -576,6 +584,55 @@ def iter_records(store_root, *, exclude_erased: bool = True):
         if tombs is not None and tombs.hides(nid, canonical_urn):
             continue
         yield record
+
+
+def iter_records_from_transactions(transactions, *, tombstones=None):
+    """Yield the FULL record for every node, reading from IN-MEMORY transaction
+    payloads instead of an on-disk store.
+
+    The in-memory companion to :func:`iter_records`: a consumer serving a sealed
+    workspace holds the sink's transactions as decrypted bytes in memory (the
+    sealed blob carries them, never plaintext on disk) and must read records
+    without materialising the store to disk. ``transactions`` is an iterable of
+    the sink's transaction payloads — each a ``bytes`` / ``str`` of the
+    transaction JSON, or the already-parsed transaction ``dict`` (with its
+    ``"envelope"``), or a bare envelope mapping. Identity-upsert latest-wins and
+    the record shape are identical to :func:`iter_records`. ``tombstones`` (a
+    :class:`versum.store.erasure.Tombstones`, e.g. from
+    :func:`~versum.store.erasure.tombstones_from_bytes`) hides erased nodes/sources;
+    ``None`` applies no erasure filtering (the caller had no ``_erasure.json``)."""
+    for nid, canonical_urn, record in _records_from_graphs(
+            _graphs_from_transactions(transactions)):
+        if tombstones is not None and tombstones.hides(nid, canonical_urn):
+            continue
+        yield record
+
+
+def _graphs_from_transactions(transactions):
+    """Parse in-memory sink transaction payloads into subgraph envelopes for
+    :func:`_records_from_graphs`. Accepts raw JSON ``bytes``/``str`` of a
+    transaction, a parsed transaction ``dict`` (uses its ``"envelope"``), or a
+    bare envelope mapping. Malformed entries are skipped (the sealed blob is
+    already authenticated end-to-end, so this is defensive, not a trust gate)."""
+    from ..ingestion.subgraph import DimensionedSubgraph  # avoid an import cycle
+    for t in transactions or ():
+        if isinstance(t, (bytes, bytearray)):
+            try:
+                t = json.loads(bytes(t).decode("utf-8"))
+            except Exception:
+                continue
+        elif isinstance(t, str):
+            try:
+                t = json.loads(t)
+            except Exception:
+                continue
+        if not isinstance(t, Mapping):
+            continue
+        envelope = t.get("envelope", t)  # a transaction dict, or a bare envelope
+        try:
+            yield DimensionedSubgraph.from_dict(envelope)
+        except Exception:
+            continue
 
 
 def get_record(store_root, node_id) -> dict | None:

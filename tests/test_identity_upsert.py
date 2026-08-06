@@ -12,7 +12,19 @@ import pytest
 
 from versum.capture import RuntimeCaptureError, append_record, append_records
 from versum.store import erasure
-from versum.store.retrieve import get_record, iter_records, search_records
+from versum.store.erasure import tombstones_from_bytes
+from versum.store.retrieve import (
+    get_record, iter_records, iter_records_from_transactions, search_records,
+)
+
+_TXN_DIR = "_dimensioned_subgraph_transactions"
+
+
+def _txn_bytes(root):
+    """The sink's transaction payloads as in-memory bytes (what a sealed workspace
+    holds in its decrypted store, never on plaintext disk)."""
+    d = root / _TXN_DIR
+    return [p.read_bytes() for p in sorted(d.glob("*.json"))] if d.exists() else []
 
 
 def _store(tmp_path):
@@ -127,6 +139,49 @@ def test_append_records_requires_version_per_item(tmp_path):
     with pytest.raises(RuntimeCaptureError):
         append_records(root, dimension="relational", actor="g",
                        records=[{"record": {"id": "w1"}}])  # no version
+
+
+def test_from_transactions_matches_on_disk_reader(tmp_path):
+    root = _store(tmp_path)
+    append_record(root, record={"id": "w1", "title": "A"}, dimension="relational",
+                  actor="g", identity=True, version="v1")
+    append_record(root, record={"id": "w1", "title": "B"}, dimension="relational",
+                  actor="g", identity=True, version="v2")   # supersedes
+    append_record(root, record={"id": "c1", "v": "x"}, dimension="relational", actor="g")
+
+    on_disk = sorted((r["node_id"], r["properties"]["record"])
+                     for r in iter_records(root))
+    in_mem = sorted((r["node_id"], r["properties"]["record"])
+                    for r in iter_records_from_transactions(_txn_bytes(root)))
+    assert in_mem == on_disk
+    # latest-wins holds through the in-memory reader too
+    w1 = [r for r in iter_records_from_transactions(_txn_bytes(root))
+          if r["node_id"] == "record:w1"]
+    assert len(w1) == 1 and w1[0]["properties"]["record"]["title"] == "B"
+
+
+def test_from_transactions_honors_tombstone_bytes(tmp_path):
+    root = _store(tmp_path)
+    append_record(root, record={"id": "w1", "title": "A"}, dimension="relational",
+                  actor="g", identity=True, version="v1")
+    append_record(root, record={"id": "w2", "title": "B"}, dimension="relational",
+                  actor="g", identity=True, version="v1")
+    erasure.delete(root, "sink:record:w1", reason="t", actor="g")
+
+    txns = _txn_bytes(root)
+    erasure_bytes = (root / "_erasure.json").read_bytes()
+    tombs = tombstones_from_bytes(erasure_bytes)
+    ids = {r["node_id"] for r in iter_records_from_transactions(txns, tombstones=tombs)}
+    assert "record:w2" in ids and "record:w1" not in ids
+    # no tombstones → the erased node is NOT filtered (caller opted out)
+    ids_all = {r["node_id"] for r in iter_records_from_transactions(txns)}
+    assert {"record:w1", "record:w2"} <= ids_all
+
+
+def test_from_transactions_empty_and_garbage_safe(tmp_path):
+    assert list(iter_records_from_transactions([])) == []
+    assert list(iter_records_from_transactions([b"not json", "{}", 123])) == []
+    assert tombstones_from_bytes(None).hidden_nodes == frozenset()
 
 
 def test_identity_record_is_searchable_and_returns_latest(tmp_path):
