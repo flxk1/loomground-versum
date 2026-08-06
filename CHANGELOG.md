@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.9.0...loomground-versum-v0.10.0) (2026-08-06)
+
+
+### Features
+
+* `append_record(identity=True, version=…)` — opt-in identity-upsert for MUTABLE records: a stable node id `record:<slug>` (no content hash) plus a caller-supplied monotonic `version` folded into the idempotency key, so an entity edited in place supersedes its prior state instead of forking a node per edit. The read projection (`iter_records`/`get_record`/`search_records`) collapses identity records to their latest version per id; content-addressed records and facts embed a content hash, never collide, and stream unchanged (backward-compatible). Erasure by the stable id hides all revisions. Unblocks the RVND grounder-store retirement and the memory-split body-drop.
+
 ## [0.9.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.7.0...loomground-versum-v0.9.0) (2026-08-06)
 
 
