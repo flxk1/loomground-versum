@@ -534,6 +534,83 @@ def append_record(store_root: str | Path, *, record: Mapping[str, Any],
     return _upsert(store_root, envelope)
 
 
+def append_records(store_root: str | Path, *, records: Sequence[Mapping[str, Any]],
+                   dimension: str, actor: str, observed_at: str | None = None,
+                   captures: Sequence[Mapping[str, Any]] | None = None) -> UpsertReceipt | None:
+    """Batch identity-upsert — many MUTABLE records in ONE transaction (one fsync).
+
+    The batched analogue of :func:`append_record` ``identity=True``: each item is a
+    mapping ``{"record": <body>, "version": <monotonic str>}``; all become
+    stable-id identity nodes (``record:<slug>``) in a *single* dimensioned-subgraph
+    transaction. A consumer that persists N changed rows (a grounder ``_flush`` /
+    ``batch``) therefore pays ONE durable write instead of N — the durable
+    per-transaction fsync is amortised across the whole batch, and reads have one
+    transaction to validate instead of N. Read-side latest-wins per node id is
+    identical to ``append_record(identity=True)``: a later transaction (higher
+    ``version``) supersedes.
+
+    An empty batch is a no-op (returns ``None``). Idempotent by the canonical
+    content of ``(records, versions, dimension, actor)``. A duplicate node id
+    within one batch keeps the last item (a batch is a set of distinct entities).
+    """
+    axis = _axis(dimension)
+    if not isinstance(actor, str) or not actor.strip():
+        raise RuntimeCaptureError("actor must be a non-empty string")
+    items = list(records or [])
+    if not items:
+        return None
+
+    by_node_id: dict[str, dict] = {}
+    keyparts: list[dict] = []
+    for item in items:
+        rec_in = item.get("record") if isinstance(item, Mapping) else None
+        version = item.get("version") if isinstance(item, Mapping) else None
+        if not isinstance(rec_in, Mapping):
+            raise RuntimeCaptureError("each batch item needs a 'record' mapping")
+        if not (isinstance(version, str) and version.strip()):
+            raise RuntimeCaptureError(
+                "each batch item needs a non-empty monotonic 'version'")
+        rec = json.loads(_canonical_bytes(dict(rec_in)))
+        rec_id = str(rec.get("id") or "").strip() or ("record:" + _short(rec))
+        problem = rec.get("problem") if isinstance(rec.get("problem"), Mapping) else {}
+        solution = rec.get("solution") if isinstance(rec.get("solution"), Mapping) else {}
+        summary = str(problem.get("summary") or "")
+        body = str(solution.get("body") or "")
+        statement = " ".join(
+            t for t in (summary, body, _facet_text(problem.get("facets"))) if t
+        ) or rec_id
+        node_id = f"record:{_slug(rec_id)}"
+        by_node_id[node_id] = {
+            "node_id": node_id,
+            "node_type": "record",
+            "dimensions": {axis: rec_id},
+            "properties": {
+                "name": rec_id, "statement": statement, "bearer": summary,
+                "action": body, "kind": "runtime-record",
+                "grounding": RUNTIME_GROUNDING, "actor": actor,
+                "record": rec, "_version": version,
+            },
+        }
+        keyparts.append({"id": rec_id, "version": version, "digest": _short(rec)})
+
+    knowledge = {"kind": "records", "batch": keyparts, "dimension": axis, "actor": actor}
+    idempotency_key = "runtime-records:" + _short(knowledge)
+    source = _runtime_source(actor)
+    evidence, _evidence_ids = _evidence_entries(
+        actor, source["source_id"], observed_at, idempotency_key, captures)
+    envelope = {
+        "schema": SCHEMA,
+        "idempotency_key": idempotency_key,
+        "source": source,
+        "evidence": evidence,
+        "nd": {"facet": "nD", "system_id": SYSTEM_ID,
+               "dimension_count": 1, "axes": [axis]},
+        "nodes": list(by_node_id.values()),
+        "relations": [],
+    }
+    return _upsert(store_root, envelope)
+
+
 def fact_node_ids(*, subject: str, object: str) -> tuple[str, str]:
     """The (subject, object) node ids :func:`append_fact` mints — for callers that need to
     address a runtime node afterwards (e.g. erasure via the ``"sink:"`` convention)."""

@@ -5,6 +5,7 @@ from .capture import (
     append_fact,
     append_inference,
     append_record,
+    append_records,
     fact_node_ids,
 )
 from .ingestion import (
@@ -27,6 +28,7 @@ __all__ = [
     "append_fact",
     "append_inference",
     "append_record",
+    "append_records",
     "fact_node_ids",
     "get_record",
     "iter_records",

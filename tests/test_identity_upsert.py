@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from versum.capture import RuntimeCaptureError, append_record
+from versum.capture import RuntimeCaptureError, append_record, append_records
 from versum.store import erasure
 from versum.store.retrieve import get_record, iter_records, search_records
 
@@ -86,6 +86,47 @@ def test_identity_requires_monotonic_version(tmp_path):
     with pytest.raises(RuntimeCaptureError):
         append_record(root, record={"id": "w1"}, dimension="relational",
                       actor="g", identity=True, version="   ")  # blank version
+
+
+def test_append_records_batch_writes_one_transaction(tmp_path):
+    root = _store(tmp_path)
+    txn_dir = root / "_dimensioned_subgraph_transactions"
+    append_records(root, dimension="relational", actor="g", records=[
+        {"record": {"id": "w1", "title": "A"}, "version": "v1"},
+        {"record": {"id": "w2", "title": "B"}, "version": "v1"},
+        {"record": {"id": "w3", "title": "C"}, "version": "v1"},
+    ])
+    # three records, ONE transaction file (one durable write)
+    assert txn_dir.exists() and len(list(txn_dir.glob("*.json"))) == 1
+    ids = {r["node_id"] for r in iter_records(root)}
+    assert {"record:w1", "record:w2", "record:w3"} <= ids
+
+
+def test_append_records_supersede_and_idempotent(tmp_path):
+    root = _store(tmp_path)
+    append_records(root, dimension="relational", actor="g", records=[
+        {"record": {"id": "w1", "title": "A"}, "version": "v1"}])
+    # a bumped version in a later batch supersedes on read
+    append_records(root, dimension="relational", actor="g", records=[
+        {"record": {"id": "w1", "title": "B"}, "version": "v2"}])
+    assert get_record(root, "record:w1")["properties"]["record"]["title"] == "B"
+    # re-appending the identical batch is idempotent
+    r = append_records(root, dimension="relational", actor="g", records=[
+        {"record": {"id": "w1", "title": "B"}, "version": "v2"}])
+    assert r["status"] == "unchanged"
+
+
+def test_append_records_empty_is_noop(tmp_path):
+    root = _store(tmp_path)
+    assert append_records(root, dimension="relational", actor="g", records=[]) is None
+    assert list(iter_records(root)) == []
+
+
+def test_append_records_requires_version_per_item(tmp_path):
+    root = _store(tmp_path)
+    with pytest.raises(RuntimeCaptureError):
+        append_records(root, dimension="relational", actor="g",
+                       records=[{"record": {"id": "w1"}}])  # no version
 
 
 def test_identity_record_is_searchable_and_returns_latest(tmp_path):
