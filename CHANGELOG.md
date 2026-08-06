@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.10.0...loomground-versum-v0.11.0) (2026-08-06)
+
+
+### Features
+
+* `append_records` — batch identity-upsert: many mutable records in ONE dimensioned-subgraph transaction (one durable fsync) instead of one per record. The batched analogue of `append_record(identity=True)` for a consumer that persists N changed rows per flush (an RVND grounder store retirement / bulk import), amortising the durable per-transaction write and leaving one transaction to validate on read. Read-side latest-wins per node id is identical; an empty batch is a no-op; idempotent by canonical `(records, versions, dimension, actor)`.
+
 ## [0.10.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.9.0...loomground-versum-v0.10.0) (2026-08-06)
 
 
