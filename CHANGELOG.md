@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.13.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.12.0...loomground-versum-v0.13.0) (2026-08-10)
+
+
+### Features
+
+* append_record — a full runtime pair as first-class knowledge ([e1cf3e2](https://github.com/flxk1/loomground-versum/commit/e1cf3e24faf7ac93ff49a83796dfe7c39fe38c71))
+* append_records — batch identity-upsert in one transaction (one fsync) ([6e1a412](https://github.com/flxk1/loomground-versum/commit/6e1a412439b191cb7ad07ad576c896210e8b0b44))
+* BM25.score optional weights — support down-weighted expanded query terms ([f201e07](https://github.com/flxk1/loomground-versum/commit/f201e071b96d210a694ad1d287d877df1f71bb91))
+* dedupe-audit operation for duplicate-identity sources ([#11](https://github.com/flxk1/loomground-versum/issues/11)) ([a74c9fb](https://github.com/flxk1/loomground-versum/commit/a74c9fbe25906a343fdebf6d9e36cc66a5a279ac))
+* first-class stub-bytes pairing operation ([e5e4be9](https://github.com/flxk1/loomground-versum/commit/e5e4be9d5ac5eb23f6a6dff1ed2365017e24589b))
+* full-record retrieval over the sink (get_record/search_records) ([d94151f](https://github.com/flxk1/loomground-versum/commit/d94151f5909ac4b7858fa9b849d221433a335d42))
+* honor erasure/distribution/hierarchy in sink store ([9090d65](https://github.com/flxk1/loomground-versum/commit/9090d65ff47e36629a894e2ea8d4b037a29fd63f))
+* identity-upsert for append_record — mutable records supersede in place ([9c6a408](https://github.com/flxk1/loomground-versum/commit/9c6a408c018f856d219d36e89dfaf5a9863cb59c))
+* iter_records — erasure-honoring enumeration of the sink ([5c17d69](https://github.com/flxk1/loomground-versum/commit/5c17d693b09723ca74aff249c7937c690814952a))
+* iter_records_from_transactions — read the sink from in-memory bytes ([7df8f94](https://github.com/flxk1/loomground-versum/commit/7df8f94a9182db30227575497759f075a3954b78))
+* land the knowledge-capture API + 0.9→0.12 onto versum main ([b58875a](https://github.com/flxk1/loomground-versum/commit/b58875a1e2f5e7673a5113786900b5fc5b80da1c))
+* markdown overlay projection written back into the library ([1fdd94e](https://github.com/flxk1/loomground-versum/commit/1fdd94e493346c9a080d54f565e0d181c7a2034a))
+* regenerate the overlay projection as part of sync ([d2e2e14](https://github.com/flxk1/loomground-versum/commit/d2e2e144457d5743c984b23b4af2283b77b395f5))
+* runtime knowledge-append API (append_fact/append_inference) ([7cd44cf](https://github.com/flxk1/loomground-versum/commit/7cd44cfcca72d8c57a8c2b938e85a5cf5a07f222))
+* search the dimensioned-subgraph store (from_dimensioned_store) ([#15](https://github.com/flxk1/loomground-versum/issues/15)) ([71164f3](https://github.com/flxk1/loomground-versum/commit/71164f31f34882aff87ea1622952a855e194a4f3))
+* store search, erasure/GDPR-purge, publish + folder hierarchy ([#14](https://github.com/flxk1/loomground-versum/issues/14)) ([c417c91](https://github.com/flxk1/loomground-versum/commit/c417c91077e2860893bc29260c3b1aabfdddf121))
+
+
+### Bug Fixes
+
+* exclude hidden paths from the Live Index walk ([6a66b0a](https://github.com/flxk1/loomground-versum/commit/6a66b0ab7277ff83e2275db770750bba8a622838))
+* exempt workspace housekeeping files from inbox orphan audit ([7021b18](https://github.com/flxk1/loomground-versum/commit/7021b1820a263b1b3efef0bccc1ddd56b2a7b71b))
+* honour KG metadata sidecars in Live Index sync ([612a78e](https://github.com/flxk1/loomground-versum/commit/612a78eafb968f3fa610cde82484a64d16115db8))
+* keep overlay note names within the filename byte limit ([12beeb7](https://github.com/flxk1/loomground-versum/commit/12beeb70309655e815c896f2c9260a3005cbeb27))
+* keep release manifests coherent ([#7](https://github.com/flxk1/loomground-versum/issues/7)) ([ca225f6](https://github.com/flxk1/loomground-versum/commit/ca225f6fa860246b127b2695eaeb2e8a12573ede))
+* percent-encode overlay link destinations ([440ff06](https://github.com/flxk1/loomground-versum/commit/440ff064d24de862eb6e3df2d188d15ab69cc65f))
+* serialize store writers with an exclusive journal lock ([#9](https://github.com/flxk1/loomground-versum/issues/9)) ([ca03bfb](https://github.com/flxk1/loomground-versum/commit/ca03bfbdffbd3f4b779afa173f08e97255e2862b))
+* tolerate Finder cruft in the K1 legacy-baseline walk ([8603fff](https://github.com/flxk1/loomground-versum/commit/8603fffb2184f6e36376afd9270f3772376d197f))
+* tolerate impossible sidecar filenames ([#6](https://github.com/flxk1/loomground-versum/issues/6)) ([9ca3786](https://github.com/flxk1/loomground-versum/commit/9ca3786fa35b70225c0c655fd9b65993ccdd9822))
+* treat the CELEX _INF qualifier as document identity too ([#13](https://github.com/flxk1/loomground-versum/issues/13)) ([5b1f823](https://github.com/flxk1/loomground-versum/commit/5b1f8235e96076368549ae2f5ee44cdc15d14ed4))
+* treat the CELEX _SUM qualifier as document identity ([#12](https://github.com/flxk1/loomground-versum/issues/12)) ([0c8484d](https://github.com/flxk1/loomground-versum/commit/0c8484d3cbf09c25a60fee89d10a8e601bf50828))
+
+
+### Documentation
+
+* document loomground-deontic runtime dependency ([7dc6346](https://github.com/flxk1/loomground-versum/commit/7dc6346087e44f0d027e05714300658d6ac81654))
+* document loomground-deontic runtime dependency ([187b1a7](https://github.com/flxk1/loomground-versum/commit/187b1a7bacd014b353c2de3540f36fc46b7725ef))
+* neutralise retired corpus-name remnants ([5602729](https://github.com/flxk1/loomground-versum/commit/56027295480863b8f2ab65f7dc1c3d8733e8517b))
+
 ## [0.12.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.11.0...loomground-versum-v0.12.0) (2026-08-06)
 
 
