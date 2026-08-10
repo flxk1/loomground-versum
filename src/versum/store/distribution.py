@@ -184,11 +184,15 @@ def publish(kg_root, target: str, *, scope: str = DEFAULT_SCOPE, reason: str = "
     """Publish one node (``"claim:<id>"`` / ``"concept:<id>"``) or a whole source
     (a ``canonical_urn``) so it flows DOWN to every descendant folder.
 
-    ``target`` is auto-routed: a ``claim:``/``concept:`` prefix marks a node; anything else
-    is treated as a source ``canonical_urn`` (equivalent to :func:`publish_source`). Recorded
-    as a signed ``node.published`` / ``source.published`` event; history is never rewritten.
+    ``target`` is auto-routed: a ``sink:`` prefix marks a dimensioned-subgraph node (see
+    :mod:`versum.store.erasure`); a ``claim:``/``concept:`` prefix marks a claims-store node;
+    anything else is treated as a source ``canonical_urn`` (equivalent to
+    :func:`publish_source`). Recorded as a signed ``node.published`` / ``source.published``
+    event; history is never rewritten.
     """
     _check_scope(scope)
+    if erasure._is_sink_node_id(target):
+        return _publish_sink_node(Path(kg_root), target, scope, reason, actor, observed_at)
     if _is_node_id(target):
         return _publish_node(Path(kg_root), target, scope, reason, actor, observed_at)
     return publish_source(kg_root, target, scope=scope, reason=reason, actor=actor,
@@ -201,6 +205,8 @@ def unpublish(kg_root, target: str, *, reason: str = "", actor: str = "",
     next read. Recorded as a signed ``node.unpublished`` / ``source.unpublished`` event.
     Lenient by design — revoking something never published is a harmless no-op marker.
     """
+    if erasure._is_sink_node_id(target):
+        return _unpublish_sink_node(Path(kg_root), target, reason, actor, observed_at)
     if _is_node_id(target):
         return _unpublish_node(Path(kg_root), target, reason, actor, observed_at)
     return unpublish_source(kg_root, target, reason=reason, actor=actor,
@@ -233,6 +239,36 @@ def _unpublish_node(root: Path, node_id: str, reason: str, actor: str, observed_
     event = _append(root, UNPUBLISH_EVENT, node_id, payload, observed_at)
     rebuild_distribution_projection(root)
     return {"node_id": node_id, "grade": "unpublished", "event_id": event["event_id"]}
+
+
+def _publish_sink_node(root: Path, target: str, scope: str, reason: str, actor: str,
+                       observed_at) -> dict:
+    """Publish one dimensioned-subgraph node. The tombstone-style projection stores the raw
+    ``node_id`` (== the sink Doc.doc_id) so ``Distribution.distributes(doc.doc_id, …)`` matches.
+    """
+    raw = erasure._sink_raw_id(target)
+    canonical_urn = erasure._canonical_urn_for_sink_node(root, raw)
+    payload = {
+        "node_id": raw, "target_type": "sink", "target_id": raw,
+        "canonical_urn": canonical_urn, "scope": scope, "reason": reason, "actor": actor,
+        "affected_claim_ids": [],
+    }
+    event = _append(root, PUBLISH_EVENT, raw, payload, observed_at)
+    rebuild_distribution_projection(root)
+    return {"node_id": raw, "grade": "published", "scope": scope,
+            "canonical_urn": canonical_urn, "event_id": event["event_id"]}
+
+
+def _unpublish_sink_node(root: Path, target: str, reason: str, actor: str,
+                         observed_at) -> dict:
+    raw = erasure._sink_raw_id(target)
+    payload = {
+        "node_id": raw, "target_type": "sink", "target_id": raw,
+        "reason": reason, "actor": actor, "affected_claim_ids": [],
+    }
+    event = _append(root, UNPUBLISH_EVENT, raw, payload, observed_at)
+    rebuild_distribution_projection(root)
+    return {"node_id": raw, "grade": "unpublished", "event_id": event["event_id"]}
 
 
 def publish_source(kg_root, canonical_urn: str, *, scope: str = DEFAULT_SCOPE,
