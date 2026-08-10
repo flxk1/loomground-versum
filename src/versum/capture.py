@@ -1,0 +1,617 @@
+"""Runtime knowledge capture — a source-less write door into the Versum sink.
+
+The canonical Versum write door, :class:`versum.ingestion.subgraph.DimensionedSubgraphSink`,
+is *file*-oriented: it demands a source ``content_digest`` (the sha256 of source bytes),
+a non-empty ``evidence[]`` with a real ``locator`` into that source, and grammar-lowered
+nodes/relations. Runtime knowledge produced by an actor — a fact it observed, an inference
+it walked — has no source file and no grounding span. This module builds a *valid*
+dimensioned-subgraph envelope for such runtime knowledge and writes it through the **same**
+sink, so the result is searchable through the existing
+:func:`versum.store.retrieve.from_dimensioned_store` read path and is subject to the same
+erasure / distribution / hierarchy machinery. The sink's contract and the file-ingest path
+are untouched; this is purely additive.
+
+Runtime knowledge is a **distinct, explicitly-marked provenance class**, not a span-grounded
+one. Versum's charter is span-grounded knowledge — a node whose claim is anchored to bytes in
+a source via an evidence locator. A runtime fact has no such anchor: it is *asserted by an
+actor*. Rather than manufacture a synthetic source/evidence digest out of the assertion itself
+(which would silently masquerade as grounding), every runtime node and relation is stamped
+``grounding="runtime"`` and the provenance digests are runtime *markers*, never a hash of the
+asserted knowledge. A reader/consumer can therefore always tell a runtime-asserted node from a
+span-grounded one, and nothing in a runtime envelope claims a grounding it does not have.
+
+Runtime envelope conventions
+----------------------------
+Every function below lowers runtime knowledge into an envelope that passes
+:meth:`versum.ingestion.subgraph.DimensionedSubgraph.from_dict` unchanged:
+
+* **source** — a runtime source shared by everything a given actor asserts::
+
+      source_id      = "runtime:<slug(actor)>"
+      content_digest = sha256(<runtime marker>:source:<source_id>)
+
+  The ``runtime:`` namespace declares the class; the digest is the *identity* of the runtime
+  source (the actor's runtime channel), **not** a digest of the asserted knowledge and never a
+  file digest. It exists only because the sink requires a ``sha256:<64hex>`` bound to the
+  envelope; it can never be mistaken for a span-grounding digest.
+
+* **evidence** — one runtime **assertion record** (plus any caller-supplied captures)::
+
+      evidence_id    = "evidence:runtime:<idempotency-digest>"
+      source_id      = the runtime source_id (all evidence binds to it, as the sink demands)
+      locator        = "runtime:<slug(actor)>:<observed_at or '-'>"
+      content_digest = RUNTIME_ASSERTION_DIGEST  (a fixed 'no grounded span' marker)
+
+  This entry is not a grounding span — runtime facts are asserted-by-an-actor, not
+  span-grounded. It records *who* asserted and *when* (actor + ``observed_at`` in the locator),
+  and its ``content_digest`` is a constant runtime marker (the same for every runtime assertion,
+  precisely because there are no span bytes to digest). The sink structurally requires a
+  non-empty ``evidence[]`` and relations require ≥1 ``evidence_id``; this single record
+  satisfies that honestly, without claiming grounding. ``observed_at`` is metadata: it is
+  stamped into the locator and node/relation properties but is deliberately **not** part of the
+  idempotency key (see below). Optional ``captures`` (an LLM answer, a web-search snippet) are
+  attached here as *additional* evidence entries — recorded as provenance, not as grounding
+  spans — rather than as first-class knowledge nodes (see :func:`append_fact`).
+
+* **nd** — ``facet="nD"``, ``system_id="system:runtime-capture"``, ``axes=[dimension]`` (the
+  single declared axis is the caller's ``dimension``), ``dimension_count=1``.
+
+* **nodes** — ``node_type="entity"``; ``node_id="entity:<slug(term)>:<digest10(term)>"`` (the
+  slug keeps it debuggable, the digest keeps distinct terms distinct and the same term
+  stable/idempotent across appends). Every node carries ``properties.grounding="runtime"`` and
+  the asserting ``properties.actor`` so a consumer can tell it apart from a span-grounded node.
+  Each node also carries a **scalar** coordinate on the declared axis: for a fact triple the
+  subject sits at the object value along that axis (``dimensions={dimension: object}``) — the
+  fact *places* the subject at the object on the chosen dimension. The subject node's
+  ``statement`` property carries the full canonical triple text so all three terms are
+  searchable through ``search_similar`` (which derives a Doc's text from
+  ``statement``/``bearer``/``action``).
+
+* **relations** — ``relation_type=slug(predicate)`` (the raw predicate is kept in
+  ``properties.predicate``, alongside ``properties.grounding="runtime"``); endpoints reference
+  the entity node ids; ``dimension`` is the declared axis; ``evidence_ids`` list the runtime
+  assertion record (and any captures).
+
+* **idempotency_key** — ``"runtime-fact:<digest>"`` / ``"runtime-inference:<digest>"`` where
+  the digest is over the canonical JSON of ``(triple|path, dimension, actor)``. Re-appending
+  the *same* knowledge by the *same* actor is a no-op (receipt ``status="unchanged"``).
+  ``observed_at`` is not in the key: the same fact is the same knowledge whenever observed. A
+  caller who re-appends the same triple with a *different* explicit ``observed_at`` gets the
+  sink's :class:`~versum.ingestion.subgraph.IdempotencyConflictError`, because that would
+  silently rebind one key to different persisted content — the sink refuses that by design.
+
+llm / web evidence
+------------------
+An LLM answer or a web-search capture is *support for* a fact, not an independently asserted
+graph fact, so it is attached as an ``evidence[]`` entry (via the ``captures`` argument of
+:func:`append_fact` / :func:`append_inference`) rather than promoted to a first-class node. A
+capture's ``content_digest`` is the honest sha256 of the captured content — it hashes real
+bytes and is recorded as provenance, not as a grounding span for the runtime assertion. This
+keeps the knowledge plane (nodes/relations) clean while preserving provenance.
+
+Everything here is stdlib + versum-internal.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from collections.abc import Mapping, Sequence
+from pathlib import Path
+from typing import Any
+
+from .ingestion.subgraph import (
+    SCHEMA,
+    DimensionedSubgraph,
+    DimensionedSubgraphSink,
+    UpsertReceipt,
+)
+
+SYSTEM_ID = "system:runtime-capture"
+NODE_TYPE = "entity"
+#: The explicit provenance-class marker stamped on every runtime node and relation, so a
+#: consumer can distinguish a runtime-asserted node from a span-grounded one.
+RUNTIME_GROUNDING = "runtime"
+#: Namespaces the runtime provenance markers; bumped only if their meaning changes.
+_RUNTIME_PROVENANCE = "loomground.versum.runtime-provenance/v1"
+_SLUG_RE = re.compile(r"[^a-z0-9._-]+")
+
+
+def _marker_digest(*parts: str) -> str:
+    """A sha256 over a fixed runtime *marker* string — never over asserted knowledge."""
+    payload = ":".join((_RUNTIME_PROVENANCE, *parts))
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+#: The synthetic runtime **assertion-record** digest — a fixed sentinel meaning "asserted at
+#: runtime by an actor, with no grounded source span". It is identical for every runtime
+#: assertion precisely because there are no span bytes to digest, and is never a hash of the
+#: assertion. It exists only to satisfy the sink's ``evidence[].content_digest`` field.
+RUNTIME_ASSERTION_DIGEST = _marker_digest("assertion")
+
+
+class RuntimeCaptureError(ValueError):
+    """A runtime capture argument cannot be lowered into a valid envelope."""
+
+
+def _canonical_bytes(value: Any) -> bytes:
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def _digest(value: Any) -> str:
+    return "sha256:" + hashlib.sha256(_canonical_bytes(value)).hexdigest()
+
+
+def _short(value: Any) -> str:
+    return hashlib.sha256(_canonical_bytes(value)).hexdigest()[:10]
+
+
+def _slug(text: str) -> str:
+    """A lowercase contract-identifier token: [a-z0-9._-], never empty."""
+    slug = _SLUG_RE.sub("-", str(text).strip().lower()).strip("-._")
+    return slug or "x"
+
+
+def _term(text: str) -> str:
+    """A term is a non-empty string; anything else is a capture error."""
+    if not isinstance(text, str) or not text.strip():
+        raise RuntimeCaptureError("terms (subject/predicate/object) must be non-empty strings")
+    return text.strip()
+
+
+def _axis(dimension: str) -> str:
+    if not isinstance(dimension, str) or not dimension.strip():
+        raise RuntimeCaptureError("dimension must be a non-empty axis identifier")
+    return dimension.strip()
+
+
+def _node_id(term: str) -> str:
+    return f"{NODE_TYPE}:{_slug(term)}:{_short(term)}"
+
+
+def _entity_node(term: str, *, axis: str, coordinate: str, statement: str, actor: str,
+                 bearer: str = "", action: str = "", kind: str = "runtime-entity") -> dict:
+    return {
+        "node_id": _node_id(term),
+        "node_type": NODE_TYPE,
+        "dimensions": {axis: coordinate},
+        "properties": {
+            "name": term,
+            "statement": statement,
+            "bearer": bearer,
+            "action": action,
+            "kind": kind,
+            # Explicit provenance class: this node is asserted at runtime, not span-grounded.
+            "grounding": RUNTIME_GROUNDING,
+            "actor": actor,
+        },
+    }
+
+
+def _runtime_source(actor: str) -> dict:
+    """The runtime source for ``actor``.
+
+    ``content_digest`` is the *identity* of the runtime source (a hash of the source_id under
+    the runtime marker), never a digest of the asserted knowledge — so it can never be mistaken
+    for a span-grounding digest.
+    """
+    source_id = f"runtime:{_slug(actor)}"
+    return {"source_id": source_id, "content_digest": _marker_digest("source", source_id)}
+
+
+def _evidence_entries(actor: str, source_id: str, observed_at: str | None,
+                      idempotency_seed: str, captures) -> tuple[list[dict], list[str]]:
+    """The runtime **assertion record** entry plus any caller-supplied captures.
+
+    Returns ``(entries, evidence_ids)``; every entry binds to ``source_id`` (the sink demands
+    all evidence share the envelope source). The first entry is the runtime assertion record —
+    NOT a grounding span: its ``content_digest`` is the fixed :data:`RUNTIME_ASSERTION_DIGEST`
+    marker and its ``locator`` names the asserting actor and observation time. ``captures`` is
+    an optional sequence of mappings ``{"kind": "llm_answer"|"websearch"|…, "content": str,
+    "locator"?: str}`` recorded as provenance; a capture's ``content_digest`` honestly hashes
+    its own content.
+    """
+    base_id = "evidence:runtime:" + _short([source_id, idempotency_seed])
+    stamp = observed_at if observed_at not in (None, "") else "-"
+    entries = [{
+        "evidence_id": base_id,
+        "source_id": source_id,
+        "locator": f"runtime:{_slug(actor)}:{stamp}",
+        "content_digest": RUNTIME_ASSERTION_DIGEST,
+    }]
+    evidence_ids = [base_id]
+    for index, capture in enumerate(captures or ()):
+        if not isinstance(capture, Mapping):
+            raise RuntimeCaptureError("each capture must be a mapping")
+        kind = _slug(str(capture.get("kind") or "capture"))
+        content = capture.get("content", "")
+        if not isinstance(content, str) or not content:
+            raise RuntimeCaptureError("each capture must carry non-empty 'content'")
+        cid = f"evidence:{kind}:{_short([content, index])}"
+        locator = capture.get("locator")
+        if not (isinstance(locator, str) and locator):
+            locator = f"runtime:{kind}:{_slug(actor)}:{stamp}#{index}"
+        entries.append({
+            "evidence_id": cid,
+            "source_id": source_id,
+            "locator": locator,
+            "content_digest": _digest(content),
+        })
+        evidence_ids.append(cid)
+    return entries, evidence_ids
+
+
+def _upsert(store_root: str | Path, envelope: dict) -> UpsertReceipt:
+    """Validate the envelope, then write it through the canonical sink.
+
+    ``store_root`` is authorized as its own root: runtime capture writes into exactly the
+    store it is handed, the same containment the file-ingest sink enforces.
+    """
+    graph = DimensionedSubgraph.from_dict(envelope)
+    sink = DimensionedSubgraphSink(store_root, authorized_store_root=store_root)
+    return sink.upsert(graph)
+
+
+def append_fact(store_root: str | Path, *, subject: str, predicate: str, object: str,
+                dimension: str, actor: str, observed_at: str | None = None,
+                captures: Sequence[Mapping[str, Any]] | None = None) -> UpsertReceipt:
+    """Append a runtime **fact triple** (subject, predicate, object) on ``dimension``.
+
+    Lowers the triple to a 2-node (subject entity, object entity) + 1-relation subgraph and
+    writes it through the sink as an explicitly runtime-asserted (``grounding="runtime"``)
+    provenance class. See the module docstring for the exact envelope conventions. Returns the
+    sink :class:`~versum.ingestion.subgraph.UpsertReceipt` (``status`` is ``"inserted"`` the
+    first time, ``"unchanged"`` on an identical re-append).
+
+    ``captures`` optionally attaches LLM/web provenance as extra ``evidence`` entries.
+    """
+    subject = _term(subject)
+    predicate = _term(predicate)
+    object = _term(object)
+    axis = _axis(dimension)
+    if not isinstance(actor, str) or not actor.strip():
+        raise RuntimeCaptureError("actor must be a non-empty string")
+
+    triple_text = f"{subject} {predicate} {object}"
+    knowledge = {"kind": "fact", "subject": subject, "predicate": predicate,
+                 "object": object, "dimension": axis, "actor": actor}
+    idempotency_key = "runtime-fact:" + _short(knowledge)
+
+    source = _runtime_source(actor)
+    evidence, evidence_ids = _evidence_entries(
+        actor, source["source_id"], observed_at, idempotency_key, captures)
+
+    subject_node = _entity_node(
+        subject, axis=axis, coordinate=object, statement=triple_text, actor=actor,
+        bearer=subject, action=object, kind="runtime-fact")
+    object_node = _entity_node(
+        object, axis=axis, coordinate=object, statement=object, actor=actor,
+        kind="runtime-entity")
+    # A self-referential triple (subject == object) collapses to a single node.
+    nodes = [subject_node]
+    if object_node["node_id"] != subject_node["node_id"]:
+        nodes.append(object_node)
+
+    stamp = observed_at if observed_at not in (None, "") else ""
+    relation = {
+        "relation_id": "rel:" + _short(knowledge),
+        "relation_type": _slug(predicate),
+        "source": {"kind": "node", "value": subject_node["node_id"]},
+        "target": {"kind": "node", "value": object_node["node_id"]},
+        "dimension": axis,
+        "evidence_ids": evidence_ids,
+        "properties": {"predicate": predicate, "actor": actor, "observed_at": stamp,
+                       "grounding": RUNTIME_GROUNDING},
+    }
+
+    envelope = {
+        "schema": SCHEMA,
+        "idempotency_key": idempotency_key,
+        "source": source,
+        "evidence": evidence,
+        "nd": {"facet": "nD", "system_id": SYSTEM_ID,
+               "dimension_count": 1, "axes": [axis]},
+        "nodes": nodes,
+        "relations": [relation],
+    }
+    return _upsert(store_root, envelope)
+
+
+def append_inference(store_root: str | Path, *, path: Sequence[Mapping[str, Any]],
+                     dimension: str, actor: str, observed_at: str | None = None,
+                     captures: Sequence[Mapping[str, Any]] | None = None) -> UpsertReceipt:
+    """Append a runtime **inference** — a multi-hop path — on ``dimension``.
+
+    ``path`` is a non-empty sequence of hops, each a mapping
+    ``{"subject": str, "predicate": str, "object": str}``. Distinct terms across the path
+    become entity nodes; each hop becomes one relation, yielding a node/relation chain written
+    through the sink under the same runtime (``grounding="runtime"``) conventions as
+    :func:`append_fact`. Returns the sink
+    :class:`~versum.ingestion.subgraph.UpsertReceipt`.
+    """
+    axis = _axis(dimension)
+    if not isinstance(actor, str) or not actor.strip():
+        raise RuntimeCaptureError("actor must be a non-empty string")
+    hops = list(path or ())
+    if not hops:
+        raise RuntimeCaptureError("path must carry at least one hop")
+
+    normalized: list[dict] = []
+    for hop in hops:
+        if not isinstance(hop, Mapping):
+            raise RuntimeCaptureError("each hop must be a mapping with subject/predicate/object")
+        normalized.append({
+            "subject": _term(hop.get("subject")),
+            "predicate": _term(hop.get("predicate")),
+            "object": _term(hop.get("object")),
+        })
+
+    knowledge = {"kind": "inference", "path": normalized, "dimension": axis, "actor": actor}
+    knowledge_digest = _digest(knowledge)
+    idempotency_key = "runtime-inference:" + _short(knowledge)
+
+    source = _runtime_source(actor)
+    evidence, evidence_ids = _evidence_entries(
+        actor, source["source_id"], observed_at, idempotency_key, captures)
+
+    path_text = " ".join(
+        f"{h['subject']} {h['predicate']} {h['object']}" for h in normalized)
+    nodes: dict[str, dict] = {}
+
+    def _remember(term: str, statement: str) -> str:
+        node = _entity_node(term, axis=axis, coordinate=term, statement=statement,
+                            actor=actor, bearer=term, kind="runtime-inference")
+        nodes.setdefault(node["node_id"], node)
+        return node["node_id"]
+
+    stamp = observed_at if observed_at not in (None, "") else ""
+    relations: list[dict] = []
+    for index, hop in enumerate(normalized):
+        # The first subject carries the whole inference text so the path is searchable.
+        subj_statement = path_text if index == 0 else hop["subject"]
+        subject_id = _remember(hop["subject"], subj_statement)
+        object_id = _remember(hop["object"], hop["object"])
+        relations.append({
+            "relation_id": "rel:" + _short([knowledge_digest, index]),
+            "relation_type": _slug(hop["predicate"]),
+            "source": {"kind": "node", "value": subject_id},
+            "target": {"kind": "node", "value": object_id},
+            "dimension": axis,
+            "evidence_ids": evidence_ids,
+            "properties": {"predicate": hop["predicate"], "actor": actor,
+                           "observed_at": stamp, "hop": index,
+                           "grounding": RUNTIME_GROUNDING},
+        })
+
+    envelope = {
+        "schema": SCHEMA,
+        "idempotency_key": idempotency_key,
+        "source": source,
+        "evidence": evidence,
+        "nd": {"facet": "nD", "system_id": SYSTEM_ID,
+               "dimension_count": 1, "axes": [axis]},
+        "nodes": list(nodes.values()),
+        "relations": relations,
+    }
+    return _upsert(store_root, envelope)
+
+
+def _facet_text(facets: Any) -> str:
+    """Flatten facet values (nested dicts/lists of scalars) into searchable text.
+
+    Used only to build the node's ``statement`` so a record is findable through
+    ``search_similar``; the FULL structured facets are preserved verbatim in the
+    node's ``properties.record`` (no lowering, no loss)."""
+    out: list[str] = []
+
+    def _walk(value: Any) -> None:
+        if isinstance(value, Mapping):
+            for v in value.values():
+                _walk(v)
+        elif isinstance(value, (list, tuple)):
+            for v in value:
+                _walk(v)
+        elif isinstance(value, str):
+            if value.strip():
+                out.append(value.strip())
+        elif isinstance(value, (int, float, bool)):
+            out.append(str(value))
+
+    _walk(facets)
+    return " ".join(out)
+
+
+def append_record(store_root: str | Path, *, record: Mapping[str, Any],
+                  dimension: str, actor: str, observed_at: str | None = None,
+                  captures: Sequence[Mapping[str, Any]] | None = None,
+                  identity: bool = False, version: str | None = None) -> UpsertReceipt:
+    """Append a full runtime **record** — an RVND-style problem/solution pair — as
+    first-class runtime knowledge. The rich analogue of :func:`append_fact`: where
+    a fact is a triple, a record is a whole pair (problem + solution + arbitrary
+    domain facets + edges).
+
+    The **complete record body rides losslessly** in the node's
+    ``properties.record`` (no facet lowering — every domain nD facet is preserved
+    verbatim); a searchable ``statement`` is derived from the problem summary,
+    solution body and facet values so the record is findable through
+    ``search_similar`` / :func:`versum.store.retrieve.search_records`. The node is
+    stamped ``grounding="runtime"`` (asserted by an actor, not span-grounded), the
+    same explicit provenance class as :func:`append_fact`. A record with no edges
+    yields a single node and no relations (the sink permits empty ``relations``).
+
+    **Two identity modes** — the sink stays an append-only, replayable transaction
+    log in both; they differ only in how the node is keyed and read back:
+
+      * **content-addressed** (default, ``identity=False``): the node id embeds a
+        content hash — ``record:<slug>:<short>``. Idempotent by the canonical
+        content of ``(record, dimension, actor)``: an identical re-append is a
+        no-op (``status="unchanged"``); a *changed* record is new knowledge under
+        a NEW node id. Every version coexists on read. This is the shape the
+        memory-split and every existing caller rely on — unchanged.
+
+      * **identity-upsert** (``identity=True``, requires a monotonic ``version``):
+        the node id is *stable* — ``record:<slug>`` (no content hash) — so a
+        MUTABLE entity (a grounder work/claim edited in place) supersedes its
+        prior state instead of forking a node per edit. ``version`` (any
+        lexicographically-monotonic string per id, e.g. an ISO ``last_seen``) is
+        folded into the idempotency key — so ``(id, version)`` is an *immutable
+        revision*: re-appending the same body+version is a no-op, a bumped
+        ``version`` writes a new transaction under the same node id, and the read
+        projection (:func:`versum.store.retrieve` — ``iter_records`` /
+        ``get_record`` / ``search_records``) returns only the LATEST version per
+        id. Content-addressed nodes never share an id, so latest-wins is a no-op
+        for them; the behaviour change is confined to identity records.
+
+    ``observed_at`` is metadata (not part of the key). ``captures`` attaches
+    LLM/web provenance as extra evidence.
+    """
+    if not isinstance(record, Mapping):
+        raise RuntimeCaptureError("record must be a mapping (an RVND-style pair)")
+    axis = _axis(dimension)
+    if not isinstance(actor, str) or not actor.strip():
+        raise RuntimeCaptureError("actor must be a non-empty string")
+    if identity and not (isinstance(version, str) and version.strip()):
+        raise RuntimeCaptureError(
+            "identity-upsert requires a non-empty monotonic `version` "
+            "(e.g. the record's last_seen) — it keys the immutable revision")
+
+    rec = json.loads(_canonical_bytes(dict(record)))  # normalized, JSON-safe copy
+    rec_id = str(rec.get("id") or "").strip() or ("record:" + _short(rec))
+    problem = rec.get("problem") if isinstance(rec.get("problem"), Mapping) else {}
+    solution = rec.get("solution") if isinstance(rec.get("solution"), Mapping) else {}
+    summary = str(problem.get("summary") or "")
+    body = str(solution.get("body") or "")
+    statement = " ".join(
+        t for t in (summary, body, _facet_text(problem.get("facets"))) if t
+    ) or rec_id
+
+    knowledge = {"kind": "record", "record": rec, "dimension": axis, "actor": actor}
+    if identity:
+        # version enters the key → (id, version) is an immutable revision; a
+        # bumped version is a new transaction the read side resolves latest-wins.
+        knowledge = {**knowledge, "identity": True, "version": version}
+    idempotency_key = "runtime-record:" + _short(knowledge)
+
+    source = _runtime_source(actor)
+    evidence, _evidence_ids = _evidence_entries(
+        actor, source["source_id"], observed_at, idempotency_key, captures)
+
+    node_id = (f"record:{_slug(rec_id)}" if identity
+               else f"record:{_slug(rec_id)}:{_short(rec)}")
+    properties = {
+        "name": rec_id,
+        "statement": statement,
+        "bearer": summary,
+        "action": body,
+        "kind": "runtime-record",
+        "grounding": RUNTIME_GROUNDING,
+        "actor": actor,
+        "record": rec,  # the FULL pair body — lossless, every facet preserved
+    }
+    if identity:
+        # the read-side latest-wins ordering key; its presence also MARKS this
+        # node as an identity record (only these are deduped on read).
+        properties["_version"] = version
+    node = {
+        "node_id": node_id,
+        "node_type": "record",
+        "dimensions": {axis: rec_id},
+        "properties": properties,
+    }
+
+    envelope = {
+        "schema": SCHEMA,
+        "idempotency_key": idempotency_key,
+        "source": source,
+        "evidence": evidence,
+        "nd": {"facet": "nD", "system_id": SYSTEM_ID,
+               "dimension_count": 1, "axes": [axis]},
+        "nodes": [node],
+        "relations": [],
+    }
+    return _upsert(store_root, envelope)
+
+
+def append_records(store_root: str | Path, *, records: Sequence[Mapping[str, Any]],
+                   dimension: str, actor: str, observed_at: str | None = None,
+                   captures: Sequence[Mapping[str, Any]] | None = None) -> UpsertReceipt | None:
+    """Batch identity-upsert — many MUTABLE records in ONE transaction (one fsync).
+
+    The batched analogue of :func:`append_record` ``identity=True``: each item is a
+    mapping ``{"record": <body>, "version": <monotonic str>}``; all become
+    stable-id identity nodes (``record:<slug>``) in a *single* dimensioned-subgraph
+    transaction. A consumer that persists N changed rows (a grounder ``_flush`` /
+    ``batch``) therefore pays ONE durable write instead of N — the durable
+    per-transaction fsync is amortised across the whole batch, and reads have one
+    transaction to validate instead of N. Read-side latest-wins per node id is
+    identical to ``append_record(identity=True)``: a later transaction (higher
+    ``version``) supersedes.
+
+    An empty batch is a no-op (returns ``None``). Idempotent by the canonical
+    content of ``(records, versions, dimension, actor)``. A duplicate node id
+    within one batch keeps the last item (a batch is a set of distinct entities).
+    """
+    axis = _axis(dimension)
+    if not isinstance(actor, str) or not actor.strip():
+        raise RuntimeCaptureError("actor must be a non-empty string")
+    items = list(records or [])
+    if not items:
+        return None
+
+    by_node_id: dict[str, dict] = {}
+    keyparts: list[dict] = []
+    for item in items:
+        rec_in = item.get("record") if isinstance(item, Mapping) else None
+        version = item.get("version") if isinstance(item, Mapping) else None
+        if not isinstance(rec_in, Mapping):
+            raise RuntimeCaptureError("each batch item needs a 'record' mapping")
+        if not (isinstance(version, str) and version.strip()):
+            raise RuntimeCaptureError(
+                "each batch item needs a non-empty monotonic 'version'")
+        rec = json.loads(_canonical_bytes(dict(rec_in)))
+        rec_id = str(rec.get("id") or "").strip() or ("record:" + _short(rec))
+        problem = rec.get("problem") if isinstance(rec.get("problem"), Mapping) else {}
+        solution = rec.get("solution") if isinstance(rec.get("solution"), Mapping) else {}
+        summary = str(problem.get("summary") or "")
+        body = str(solution.get("body") or "")
+        statement = " ".join(
+            t for t in (summary, body, _facet_text(problem.get("facets"))) if t
+        ) or rec_id
+        node_id = f"record:{_slug(rec_id)}"
+        by_node_id[node_id] = {
+            "node_id": node_id,
+            "node_type": "record",
+            "dimensions": {axis: rec_id},
+            "properties": {
+                "name": rec_id, "statement": statement, "bearer": summary,
+                "action": body, "kind": "runtime-record",
+                "grounding": RUNTIME_GROUNDING, "actor": actor,
+                "record": rec, "_version": version,
+            },
+        }
+        keyparts.append({"id": rec_id, "version": version, "digest": _short(rec)})
+
+    knowledge = {"kind": "records", "batch": keyparts, "dimension": axis, "actor": actor}
+    idempotency_key = "runtime-records:" + _short(knowledge)
+    source = _runtime_source(actor)
+    evidence, _evidence_ids = _evidence_entries(
+        actor, source["source_id"], observed_at, idempotency_key, captures)
+    envelope = {
+        "schema": SCHEMA,
+        "idempotency_key": idempotency_key,
+        "source": source,
+        "evidence": evidence,
+        "nd": {"facet": "nD", "system_id": SYSTEM_ID,
+               "dimension_count": 1, "axes": [axis]},
+        "nodes": list(by_node_id.values()),
+        "relations": [],
+    }
+    return _upsert(store_root, envelope)
+
+
+def fact_node_ids(*, subject: str, object: str) -> tuple[str, str]:
+    """The (subject, object) node ids :func:`append_fact` mints — for callers that need to
+    address a runtime node afterwards (e.g. erasure via the ``"sink:"`` convention)."""
+    return _node_id(_term(subject)), _node_id(_term(object))

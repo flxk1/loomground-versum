@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.12.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.11.0...loomground-versum-v0.12.0) (2026-08-06)
+
+
+### Features
+
+* `iter_records_from_transactions` + `tombstones_from_bytes` — read the sink's records from IN-MEMORY transaction payloads instead of an on-disk store, so a consumer serving a *sealed* workspace (whose decrypted transactions live only in memory, never plaintext on disk) can read knowledge without materialising the store. Same identity-upsert latest-wins projection and record shape as `iter_records`; `tombstones_from_bytes` builds the erasure projection from the `_erasure.json` bytes. Unblocks the RVND memory-split body-drop over sealed workspaces.
+
+## [0.11.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.10.0...loomground-versum-v0.11.0) (2026-08-06)
+
+
+### Features
+
+* `append_records` — batch identity-upsert: many mutable records in ONE dimensioned-subgraph transaction (one durable fsync) instead of one per record. The batched analogue of `append_record(identity=True)` for a consumer that persists N changed rows per flush (an RVND grounder store retirement / bulk import), amortising the durable per-transaction write and leaving one transaction to validate on read. Read-side latest-wins per node id is identical; an empty batch is a no-op; idempotent by canonical `(records, versions, dimension, actor)`.
+
+## [0.10.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.9.0...loomground-versum-v0.10.0) (2026-08-06)
+
+
+### Features
+
+* `append_record(identity=True, version=…)` — opt-in identity-upsert for MUTABLE records: a stable node id `record:<slug>` (no content hash) plus a caller-supplied monotonic `version` folded into the idempotency key, so an entity edited in place supersedes its prior state instead of forking a node per edit. The read projection (`iter_records`/`get_record`/`search_records`) collapses identity records to their latest version per id; content-addressed records and facts embed a content hash, never collide, and stream unchanged (backward-compatible). Erasure by the stable id hides all revisions. Unblocks the RVND grounder-store retirement and the memory-split body-drop.
+
+## [0.9.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.7.0...loomground-versum-v0.9.0) (2026-08-06)
+
+
+### Features
+
+* `append_record` — a full runtime **record** (an RVND-style problem/solution pair with arbitrary domain facets) as first-class knowledge, the rich analogue of `append_fact`; the whole pair body rides losslessly in the node's `properties.record`, searchable through the existing read path ([e1cf3e2](https://github.com/flxk1/loomground-versum/commit/e1cf3e2))
+* `iter_records` — erasure-honoring enumeration of the sink, the companion to `get_record` (by id) and `search_records` (by query) for consumers that must list or re-index everything the store holds ([5c17d69](https://github.com/flxk1/loomground-versum/commit/5c17d69))
+* `BM25.score` optional `weights=` — down-weight expanded/synonym query terms; `weights=None` is exactly the historical unweighted score (backward-compatible), so a consumer can keep query-expansion weighting while consuming versum's BM25 ([f201e07](https://github.com/flxk1/loomground-versum/commit/f201e07))
+* runtime knowledge-append API — `append_fact` / `append_inference` write source-less runtime knowledge (a fact triple, a reasoning path) through the canonical dimensioned-subgraph sink as an explicitly-marked runtime provenance class (`grounding="runtime"`, no manufactured grounding), idempotent and searchable through the existing read path ([7cd44cf](https://github.com/flxk1/loomground-versum/commit/7cd44cfcca72d8c57a8c2b938e85a5cf5a07f222))
+* full-record retrieval over the sink — `get_record` / `search_records` return the whole node (type + dimensions + all properties), every relation touching it (both directions) and the transaction's `source` / `evidence` provenance, not a lossy snippet ([d94151f](https://github.com/flxk1/loomground-versum/commit/d94151f5909ac4b7858fa9b849d221433a335d42))
+* search the dimensioned-subgraph store via `from_dimensioned_store` (one Doc per subgraph node, ranked by the shared `search_similar`) ([71164f3](https://github.com/flxk1/loomground-versum/commit/71164f31f34882aff87ea1622952a855e194a4f3))
+* store search, erasure / GDPR-purge, publish + folder hierarchy over the sink store ([c417c91](https://github.com/flxk1/loomground-versum/commit/c417c91077e2860893bc29260c3b1aabfdddf121))
+* honor erasure / distribution / hierarchy in the sink store ([9090d65](https://github.com/flxk1/loomground-versum/commit/9090d65ff47e36629a894e2ea8d4b037a29fd63f))
+* dedupe-audit operation for duplicate-identity sources ([a74c9fb](https://github.com/flxk1/loomground-versum/commit/a74c9fbe25906a343fdebf6d9e36cc66a5a279ac))
+
+
+### Bug Fixes
+
+* serialize store writers with an exclusive journal lock ([ca03bfb](https://github.com/flxk1/loomground-versum/commit/ca03bfbdffbd3f4b779afa173f08e97255e2862b))
+* treat the CELEX `_SUM` qualifier as document identity ([0c8484d](https://github.com/flxk1/loomground-versum/commit/0c8484d3cbf09c25a60fee89d10a8e601bf50828))
+* treat the CELEX `_INF` qualifier as document identity too ([5b1f823](https://github.com/flxk1/loomground-versum/commit/5b1f8235e96076368549ae2f5ee44cdc15d14ed4))
+
+
+### Build System
+
+* gate the PyPI publish behind the `PYPI_PUBLISHING` repo variable ([0ba5325](https://github.com/flxk1/loomground-versum/commit/0ba5325048e7da7fdd947c955a7515723d8148e6))
+
 ## [0.7.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.6.4...loomground-versum-v0.7.0) (2026-08-02)
 
 

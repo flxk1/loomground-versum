@@ -120,7 +120,13 @@ class BM25:
         self.idf = {t: math.log(1 + (self.N - c + 0.5) / (c + 0.5)) for t, c in df.items()}
         return self
 
-    def score(self, q_tokens, i: int) -> float:
+    def score(self, q_tokens, i: int, *, weights=None) -> float:
+        """Okapi BM25 score of document ``i`` for the query terms.
+
+        ``weights`` optionally maps a query term to a multiplier (default 1.0),
+        so a caller can down-weight expanded/synonym terms relative to the
+        originals. ``weights=None`` is exactly the historical unweighted score.
+        """
         if not self.avgdl:
             return 0.0
         dl = self.doc_len[i]
@@ -130,7 +136,8 @@ class BM25:
             f = tfi.get(t)
             if not f:
                 continue
-            s += self.idf.get(t, 0.0) * (f * (self.k1 + 1)) / (
+            w = 1.0 if weights is None else float(weights.get(t, 1.0))
+            s += w * self.idf.get(t, 0.0) * (f * (self.k1 + 1)) / (
                 f + self.k1 * (1 - self.b + self.b * dl / self.avgdl))
         return s
 
@@ -389,7 +396,7 @@ def _node_field(node: Mapping, props: Mapping, name: str):
     return props.get(name, "")
 
 
-def docs_from_dimensioned_store(store_root) -> list:
+def docs_from_dimensioned_store(store_root, *, exclude_erased: bool = True) -> list:
     """Build the Doc set from the canonical DimensionedSubgraphSink store.
 
     Reads every signed transaction under ``<store_root>/_dimensioned_subgraph_transactions``
@@ -399,6 +406,11 @@ def docs_from_dimensioned_store(store_root) -> list:
     ``{node_id, node_type, dimensions, properties}``; the deontic ingester's logical fields
     (``statement``, ``operator``, ``bearer``, ``action``, …) live under ``properties`` — this
     reader tolerates either shape.
+
+    ``exclude_erased`` (default) drops every sink node the erasure projection tombstones —
+    both logically deleted and purged nodes/sources (see :mod:`versum.store.erasure`) — so no
+    sink read ever surfaces an erased item. The tombstone set is keyed by the raw ``node_id``
+    (== ``Doc.doc_id``) and the subgraph ``source.source_id`` (== ``Doc.canonical_urn``).
     """
     from ..ingestion.subgraph import load_dimensioned_subgraphs  # avoid an import cycle
     docs: list = []
@@ -431,14 +443,247 @@ def docs_from_dimensioned_store(store_root) -> list:
             docs.append(Doc(
                 doc_id=str(doc_id), type=str(node_type), text=text,
                 facets=facets, canonical_urn=canonical_urn))
+    if exclude_erased:
+        from .erasure import load_tombstones  # stdlib-only reader; no write machinery
+        tombs = load_tombstones(store_root)
+        docs = [d for d in docs if not tombs.hides(d.doc_id, d.canonical_urn)]
     return docs
 
 
-def from_dimensioned_store(store_root, dense: Dense | None = None) -> SearchIndex:
+def from_dimensioned_store(store_root, dense: Dense | None = None, *,
+                           exclude_erased: bool = True) -> SearchIndex:
     """SearchIndex over the DimensionedSubgraphSink store (one Doc per subgraph node).
 
     Companion to :func:`from_kg` for the *other* persistence representation: the signed
     transactions written by :class:`versum.ingestion.subgraph.DimensionedSubgraphSink`.
-    ``search_similar`` works over the returned index unchanged.
+    ``search_similar`` works over the returned index unchanged. ``exclude_erased`` (default)
+    hides tombstoned sink nodes/sources (see :mod:`versum.store.erasure`).
     """
-    return SearchIndex(docs_from_dimensioned_store(store_root), dense=dense)
+    return SearchIndex(
+        docs_from_dimensioned_store(store_root, exclude_erased=exclude_erased), dense=dense)
+
+
+# ── full-record retrieval over the dimensioned-subgraph store ─────
+# ``search_similar`` / ``from_dimensioned_store`` return *lossy* hits — ``doc_id``, ``score``
+# and a text ``snippet[:200]`` — enough to rank, not enough to reconstruct a knowledge item.
+# A consumer that reads knowledge back out of the sink must read the WHOLE record: the node
+# itself (``node_type`` + ``dimensions`` + all ``properties``), every relation that touches it
+# (in *both* directions), and the transaction's ``source`` / ``evidence`` provenance — so it can
+# reconstruct the knowledge item and apply its OWN enforcement over it (redaction, lock/seal,
+# source scoping). Versum owns storage + retrieval and returns the full record; it does NOT
+# apply redaction or lock/seal — those stay in the consumer.
+#
+# The record shape (a plain JSON-able dict; :func:`search_records` adds a ``"score"``)::
+#
+#     {"node_id", "node_type", "dimensions", "properties",
+#      "source": {"source_id", "content_digest"},   # the transaction's source
+#      "evidence": [ … ],                            # the transaction's evidence[]
+#      "relations": [ … ]}                           # every relation touching the node
+def _relation_touches_node(relation: Mapping, node_id: str) -> bool:
+    """True when a relation references ``node_id`` on a ``kind == "node"`` endpoint
+    (either the ``source`` or the ``target`` end — i.e. relations in both directions)."""
+    for endpoint_name in ("source", "target"):
+        endpoint = relation.get(endpoint_name)
+        if isinstance(endpoint, Mapping) and endpoint.get("kind") == "node":
+            if str(endpoint.get("value")) == node_id:
+                return True
+    return False
+
+
+def _full_record(graph: Mapping, node: Mapping, canonical_urn: str) -> dict:
+    """Assemble the full record for one subgraph ``node`` within its transaction ``graph``.
+
+    ``source`` / ``evidence`` are the transaction's provenance; ``relations`` is every
+    relation in the transaction that touches this node in either direction.
+    """
+    node_id = str(node.get("node_id") or node.get("id"))
+    props = node.get("properties")
+    dims = node.get("dimensions")
+    node_type = (node.get("node_type") or node.get("kind")
+                 or (props.get("kind") if isinstance(props, Mapping) else None) or "norm")
+    source = graph.get("source")
+    return {
+        "node_id": node_id,
+        "node_type": str(node_type),
+        "dimensions": dict(dims) if isinstance(dims, Mapping) else {},
+        "properties": dict(props) if isinstance(props, Mapping) else {},
+        "source": dict(source) if isinstance(source, Mapping) else {},
+        "evidence": [dict(e) for e in graph.get("evidence", []) if isinstance(e, Mapping)],
+        "relations": [dict(r) for r in graph.get("relations", [])
+                      if isinstance(r, Mapping) and _relation_touches_node(r, node_id)],
+    }
+
+
+def _iter_node_records(store_root):
+    """Yield ``(node_id, canonical_urn, record)`` for every node in every signed transaction.
+
+    No erasure filtering here — callers apply their own tombstone policy. ``canonical_urn`` is
+    the subgraph ``source.source_id`` (the same key erasure tombstones a source under).
+
+    **Identity-upsert latest-wins:** a node carrying ``properties._version`` is an
+    identity record (see :func:`versum.capture.append_record` ``identity=True``) —
+    a MUTABLE entity whose stable node id recurs across transactions, one per edit.
+    Only these are collapsed to their highest ``_version`` (lexicographic), so a
+    consumer reads the current state, not every superseded revision. Every other
+    node — content-addressed records, fact/entity nodes — streams unchanged (their
+    ids embed a content hash, so they never collide and the collapse never touches
+    them). The append-only transaction log is untouched; this is a read projection.
+    """
+    from ..ingestion.subgraph import load_dimensioned_subgraphs  # avoid an import cycle
+    yield from _records_from_graphs(load_dimensioned_subgraphs(store_root))
+
+
+def _records_from_graphs(graphs):
+    """The shared node→record projection (identity-upsert latest-wins) over an
+    iterable of already-loaded subgraph envelopes — used by both the on-disk reader
+    (:func:`_iter_node_records`) and the in-memory reader
+    (:func:`iter_records_from_transactions`)."""
+    identity_latest: dict = {}   # node_id -> (version_str, (node_id, canonical_urn, record))
+    identity_order: list = []
+    for graph in graphs:
+        if not isinstance(graph, Mapping):
+            continue
+        source = graph.get("source")
+        canonical_urn = str(source.get("source_id") or "") if isinstance(source, Mapping) else ""
+        for node in graph.get("nodes", []):
+            if not isinstance(node, Mapping):
+                continue
+            node_id = node.get("node_id") or node.get("id")
+            if not node_id:
+                continue
+            nid = str(node_id)
+            props = node.get("properties")
+            version = props.get("_version") if isinstance(props, Mapping) else None
+            record = _full_record(graph, node, canonical_urn)
+            if version is None:
+                yield nid, canonical_urn, record            # unchanged streaming
+                continue
+            prev = identity_latest.get(nid)                 # identity: keep latest only
+            if prev is None:
+                identity_order.append(nid)
+            if prev is None or str(version) > prev[0]:
+                identity_latest[nid] = (str(version), (nid, canonical_urn, record))
+    for nid in identity_order:
+        yield identity_latest[nid][1]
+
+
+def iter_records(store_root, *, exclude_erased: bool = True):
+    """Yield the FULL record for every node in the sink, honoring erasure.
+
+    The enumeration companion to :func:`get_record` (by id) and
+    :func:`search_records` (by query): for a consumer that must list or re-index
+    everything the store holds — e.g. rebuild a folder view or union the sink with
+    another source. Each record has the same shape as :func:`get_record`
+    (``{node_id, node_type, dimensions, properties, source, evidence, relations}``).
+    Tombstoned nodes/sources are hidden when ``exclude_erased`` (default), exactly
+    as they are hidden from ``get_record`` / ``search_records``.
+    """
+    from .erasure import load_tombstones  # stdlib-only reader; no write machinery
+    tombs = load_tombstones(store_root) if exclude_erased else None
+    for nid, canonical_urn, record in _iter_node_records(store_root):
+        if tombs is not None and tombs.hides(nid, canonical_urn):
+            continue
+        yield record
+
+
+def iter_records_from_transactions(transactions, *, tombstones=None):
+    """Yield the FULL record for every node, reading from IN-MEMORY transaction
+    payloads instead of an on-disk store.
+
+    The in-memory companion to :func:`iter_records`: a consumer serving a sealed
+    workspace holds the sink's transactions as decrypted bytes in memory (the
+    sealed blob carries them, never plaintext on disk) and must read records
+    without materialising the store to disk. ``transactions`` is an iterable of
+    the sink's transaction payloads — each a ``bytes`` / ``str`` of the
+    transaction JSON, or the already-parsed transaction ``dict`` (with its
+    ``"envelope"``), or a bare envelope mapping. Identity-upsert latest-wins and
+    the record shape are identical to :func:`iter_records`. ``tombstones`` (a
+    :class:`versum.store.erasure.Tombstones`, e.g. from
+    :func:`~versum.store.erasure.tombstones_from_bytes`) hides erased nodes/sources;
+    ``None`` applies no erasure filtering (the caller had no ``_erasure.json``)."""
+    for nid, canonical_urn, record in _records_from_graphs(
+            _graphs_from_transactions(transactions)):
+        if tombstones is not None and tombstones.hides(nid, canonical_urn):
+            continue
+        yield record
+
+
+def _graphs_from_transactions(transactions):
+    """Parse in-memory sink transaction payloads into subgraph envelopes for
+    :func:`_records_from_graphs`. Accepts raw JSON ``bytes``/``str`` of a
+    transaction, a parsed transaction ``dict`` (uses its ``"envelope"``), or a
+    bare envelope mapping. Malformed entries are skipped (the sealed blob is
+    already authenticated end-to-end, so this is defensive, not a trust gate)."""
+    from ..ingestion.subgraph import DimensionedSubgraph  # avoid an import cycle
+    for t in transactions or ():
+        if isinstance(t, (bytes, bytearray)):
+            try:
+                t = json.loads(bytes(t).decode("utf-8"))
+            except Exception:
+                continue
+        elif isinstance(t, str):
+            try:
+                t = json.loads(t)
+            except Exception:
+                continue
+        if not isinstance(t, Mapping):
+            continue
+        envelope = t.get("envelope", t)  # a transaction dict, or a bare envelope
+        try:
+            yield DimensionedSubgraph.from_dict(envelope)
+        except Exception:
+            continue
+
+
+def get_record(store_root, node_id) -> dict | None:
+    """The FULL record for one dimensioned-subgraph node, or ``None`` if absent/erased.
+
+    Returns ``{node_id, node_type, dimensions, properties, source, evidence, relations}``
+    where ``relations`` is every relation touching the node (both directions) and
+    ``source`` / ``evidence`` are the transaction's provenance. This is the by-id, full-fidelity
+    companion to the lossy ``search_similar`` hit: enough for a consumer to rebuild a knowledge
+    item and apply its own enforcement (redaction, lock/seal, source scoping), which Versum
+    does NOT apply here.
+
+    Honours the WS-B erasure projection (:mod:`versum.store.erasure`): a logically deleted or
+    purged node — or a node whose source is tombstoned — returns ``None``, exactly as it is
+    hidden from every read. An unknown ``node_id`` also returns ``None``.
+    """
+    from .erasure import load_tombstones  # stdlib-only reader; no write machinery
+    tombs = load_tombstones(store_root)
+    for nid, canonical_urn, record in _iter_node_records(store_root):
+        if nid == str(node_id):
+            if tombs.hides(nid, canonical_urn):
+                return None
+            return record
+    return None
+
+
+def search_records(store_root, query, *, k: int = 10, filters: dict | None = None,
+                   exclude_erased: bool = True) -> list[dict]:
+    """Rank like :meth:`SearchIndex.search_similar`, but carry the FULL record per hit.
+
+    Reuses the exact keyword-overlap ranking of ``from_dimensioned_store(...).search_similar``;
+    each hit is the full :func:`get_record` record for the matched node plus its ``"score"`` —
+    not a ``snippet``. ``k`` / ``filters`` behave as in ``search_similar``. ``exclude_erased``
+    (default) hides tombstoned nodes/sources from both the ranking and the attached records.
+    Versum returns the whole record; redaction and lock/seal remain the consumer's job.
+    """
+    index = from_dimensioned_store(store_root, exclude_erased=exclude_erased)
+    hits = index.search_similar(query, k=k, filters=filters)
+    if not hits:
+        return []
+    from .erasure import load_tombstones  # stdlib-only reader; no write machinery
+    tombs = load_tombstones(store_root) if exclude_erased else None
+    records: dict[str, dict] = {}
+    for nid, canonical_urn, record in _iter_node_records(store_root):
+        if tombs is not None and tombs.hides(nid, canonical_urn):
+            continue
+        records.setdefault(nid, record)
+    out: list[dict] = []
+    for hit in hits:
+        record = records.get(hit["doc_id"])
+        if record is None:
+            continue
+        out.append({**record, "score": hit["score"]})
+    return out

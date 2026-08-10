@@ -1,6 +1,6 @@
 {
   "name": "loomground-versum",
-  "version": "0.7.0",
+  "version": "0.12.0",
   "description": "Loomground's human-gated knowledge-graph write path, concept-neighbour organiser, mental-model engine, and the research→graph enrichment loop, plus the read-only KG cockpit and conversational query surface over the graph.",
   "author": {
     "name": "Loomground Contributors"
