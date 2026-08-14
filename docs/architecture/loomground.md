@@ -13,7 +13,7 @@ any conforming runtime and preserve the runtime's canonical observation. It
 does not parse, validate, evaluate, authorize, or map that observation to graph
 truth.
 
-This separation allows Solver, RVND, and other Loomground runtimes to be used
+This separation allows Solver, host, and other Loomground runtimes to be used
 without making any one of them a dependency of Versum. Domain grounding is a
 separate explicit step so that a runtime decision is never silently promoted
 to a confirmed Versum claim.

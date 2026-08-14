@@ -56,7 +56,7 @@ and publishes them using
 [PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/) — an OIDC
 exchange (`id-token: write`) instead of a long-lived API token stored in the
 repository. Publication runs only inside the protected `pypi` GitHub environment and
-must pass the RVND governance lane before anything reaches PyPI.
+must pass the host governance lane before anything reaches PyPI.
 
 The publish job installs `requirements-dev.txt` before installing the package itself.
 `pyproject.toml` declares `loomground-governance>=0.8,<0.9` as an abstract, index-clean
