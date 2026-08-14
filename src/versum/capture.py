@@ -427,7 +427,7 @@ def append_record(store_root: str | Path, *, record: Mapping[str, Any],
                   dimension: str, actor: str, observed_at: str | None = None,
                   captures: Sequence[Mapping[str, Any]] | None = None,
                   identity: bool = False, version: str | None = None) -> UpsertReceipt:
-    """Append a full runtime **record** — an RVND-style problem/solution pair — as
+    """Append a full runtime **record** — an host-style problem/solution pair — as
     first-class runtime knowledge. The rich analogue of :func:`append_fact`: where
     a fact is a triple, a record is a whole pair (problem + solution + arbitrary
     domain facets + edges).
@@ -468,7 +468,7 @@ def append_record(store_root: str | Path, *, record: Mapping[str, Any],
     LLM/web provenance as extra evidence.
     """
     if not isinstance(record, Mapping):
-        raise RuntimeCaptureError("record must be a mapping (an RVND-style pair)")
+        raise RuntimeCaptureError("record must be a mapping (an host-style pair)")
     axis = _axis(dimension)
     if not isinstance(actor, str) or not actor.strip():
         raise RuntimeCaptureError("actor must be a non-empty string")

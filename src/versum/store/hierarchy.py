@@ -20,9 +20,9 @@ distributed). :func:`from_folder` wraps that set in a
 :class:`~versum.store.retrieve.SearchIndex`, so ``from_folder(folder).search_similar(query)``
 searches the whole aggregated scope.
 
-Ported from RVND's ``WorkspaceMemory`` folder-discovery + aggregation semantics
+Ported from host's ``WorkspaceMemory`` folder-discovery + aggregation semantics
 (``discover_folders`` / ``discover_ancestors`` / ``discover_descendants`` / ``search`` /
-``all_pairs``) so RVND can retire the last of its parallel store.
+``all_pairs``) so host can retire the last of its parallel store.
 """
 from __future__ import annotations
 

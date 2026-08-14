@@ -1,12 +1,12 @@
 """Runtime knowledge capture (``versum.capture``) — the source-less write door.
 
-RVND needs to write NON-file runtime knowledge (a fact triple, a reasoning inference) into
+host needs to write NON-file runtime knowledge (a fact triple, a reasoning inference) into
 the *same* dimensioned-subgraph sink used by file ingest, so it can retire its parallel store.
 These tests prove that runtime captures:
 
   * lower to a VALID envelope (they round-trip through ``load_dimensioned_subgraphs``),
   * are idempotent on an identical re-append (sink receipt ``status="unchanged"``),
-  * are searchable through the existing ``from_dimensioned_store`` read path (RVND pairs_search),
+  * are searchable through the existing ``from_dimensioned_store`` read path (host pairs_search),
   * and flow through the WS-B sink capabilities — erasure hides a runtime node from search.
 
 The sink contract and the file-ingest path are untouched; capture is purely additive.
@@ -36,7 +36,7 @@ def test_append_fact_lowers_to_two_nodes_one_relation(tmp_path):
     store = _store(tmp_path)
     receipt = append_fact(
         store, subject="Alice", predicate="located in", object="Berlin",
-        dimension="geography", actor="rvnd-agent")
+        dimension="geography", actor="agent")
     assert receipt["status"] == "inserted"
 
     graphs = load_dimensioned_subgraphs(store)
@@ -53,8 +53,8 @@ def test_append_fact_lowers_to_two_nodes_one_relation(tmp_path):
     assert relation["properties"]["predicate"] == "located in"  # raw predicate kept
 
     # The synthetic runtime source/evidence conventions.
-    assert graph["source"]["source_id"] == "runtime:rvnd-agent"
-    assert graph["evidence"][0]["locator"].startswith("runtime:rvnd-agent:")
+    assert graph["source"]["source_id"] == "runtime:agent"
+    assert graph["evidence"][0]["locator"].startswith("runtime:agent:")
     # The subject sits at the object value along the declared axis.
     subject_id, object_id = fact_node_ids(subject="Alice", object="Berlin")
     by_id = {n["node_id"]: n for n in graph["nodes"]}
@@ -65,9 +65,9 @@ def test_append_fact_lowers_to_two_nodes_one_relation(tmp_path):
 def test_append_fact_is_idempotent(tmp_path):
     store = _store(tmp_path)
     first = append_fact(store, subject="Alice", predicate="located in", object="Berlin",
-                        dimension="geography", actor="rvnd-agent")
+                        dimension="geography", actor="agent")
     second = append_fact(store, subject="Alice", predicate="located in", object="Berlin",
-                         dimension="geography", actor="rvnd-agent")
+                        dimension="geography", actor="agent")
     assert first["status"] == "inserted"
     assert second["status"] == "unchanged"
     assert first["idempotency_key"] == second["idempotency_key"]
@@ -85,18 +85,18 @@ def test_same_triple_different_observed_at_is_a_conflict(tmp_path):
                     dimension="social", actor="a", observed_at="2026-08-04T11:00:00Z")
 
 
-# ── searchable through the existing read path (RVND pairs_search) ─────────────
+# ── searchable through the existing read path (host pairs_search) ─────────────
 def test_runtime_fact_is_searchable(tmp_path):
     store = _store(tmp_path)
     append_fact(store, subject="controller", predicate="must ensure", object="data protection",
-                dimension="causal", actor="rvnd-agent")
+                dimension="causal", actor="agent")
     idx = from_dimensioned_store(store)
     hits = idx.search_similar("controller data protection", k=5)
     assert hits
     subject_id, _ = fact_node_ids(subject="controller", object="data protection")
     assert any(h["doc_id"] == subject_id for h in hits)
     # canonical_urn carries the synthetic runtime source id.
-    assert hits[0]["canonical_urn"] == "runtime:rvnd-agent"
+    assert hits[0]["canonical_urn"] == "runtime:agent"
 
 
 def test_unrelated_query_finds_nothing(tmp_path):
@@ -113,14 +113,14 @@ def test_runtime_provenance_is_marked_and_not_self_referential(tmp_path):
     (grounding markers) and must NOT manufacture grounding by hashing the assertion itself."""
     store = _store(tmp_path)
     append_fact(store, subject="Alice", predicate="located in", object="Berlin",
-                dimension="geography", actor="rvnd-agent")
+                dimension="geography", actor="agent")
     graph = load_dimensioned_subgraphs(store)[0]
 
     # Every node and relation is stamped as a runtime provenance class, with the asserting
     # actor — a consumer can tell it apart from a span-grounded node.
     for node in graph["nodes"]:
         assert node["properties"]["grounding"] == RUNTIME_GROUNDING
-        assert node["properties"]["actor"] == "rvnd-agent"
+        assert node["properties"]["actor"] == "agent"
     for relation in graph["relations"]:
         assert relation["properties"]["grounding"] == RUNTIME_GROUNDING
 
@@ -128,7 +128,7 @@ def test_runtime_provenance_is_marked_and_not_self_referential(tmp_path):
     # "grounding": a hash of the assertion itself.
     self_referential = _digest({
         "kind": "fact", "subject": "Alice", "predicate": "located in", "object": "Berlin",
-        "dimension": "geography", "actor": "rvnd-agent"})
+        "dimension": "geography", "actor": "agent"})
 
     # Source content_digest is the runtime source IDENTITY marker, never the assertion hash.
     assert graph["source"]["content_digest"].startswith("sha256:")
@@ -149,7 +149,7 @@ def test_capture_content_digest_hashes_the_capture_not_the_assertion(tmp_path):
     store = _store(tmp_path)
     content = "Berlin is the capital of Germany."
     append_fact(store, subject="Berlin", predicate="capital of", object="Germany",
-                dimension="geography", actor="rvnd-agent",
+                dimension="geography", actor="agent",
                 captures=[{"kind": "llm_answer", "content": content}])
     graph = load_dimensioned_subgraphs(store)[0]
     capture = next(e for e in graph["evidence"] if e["evidence_id"].startswith("evidence:llm"))
@@ -193,14 +193,14 @@ def test_append_inference_round_trips_as_chain(tmp_path):
 def test_erasure_removes_runtime_node_from_search(tmp_path):
     store = _store(tmp_path)
     append_fact(store, subject="Alice", predicate="located in", object="Berlin",
-                dimension="geography", actor="rvnd-agent")
+                dimension="geography", actor="agent")
     subject_id, _ = fact_node_ids(subject="Alice", object="Berlin")
 
     idx = from_dimensioned_store(store)
     assert any(h["doc_id"] == subject_id for h in idx.search_similar("Alice Berlin", k=5))
 
     # Address the runtime node through the sink erasure convention ("sink:" + raw node_id).
-    erasure.delete(store, "sink:" + subject_id, reason="test", actor="rvnd-agent")
+    erasure.delete(store, "sink:" + subject_id, reason="test", actor="agent")
 
     idx = from_dimensioned_store(store)
     assert not any(h["doc_id"] == subject_id for h in idx.search_similar("Alice Berlin", k=5))
@@ -211,7 +211,7 @@ def test_captures_attach_as_evidence(tmp_path):
     store = _store(tmp_path)
     append_fact(
         store, subject="Berlin", predicate="capital of", object="Germany",
-        dimension="geography", actor="rvnd-agent",
+        dimension="geography", actor="agent",
         captures=[
             {"kind": "llm_answer", "content": "Berlin is the capital of Germany."},
             {"kind": "websearch", "content": "de.wikipedia.org/wiki/Berlin",
@@ -220,7 +220,7 @@ def test_captures_attach_as_evidence(tmp_path):
     graph = load_dimensioned_subgraphs(store)[0]
     # Two captures + one synthetic runtime evidence, all bound to the runtime source.
     assert len(graph["evidence"]) == 3
-    assert all(e["source_id"] == "runtime:rvnd-agent" for e in graph["evidence"])
+    assert all(e["source_id"] == "runtime:agent" for e in graph["evidence"])
     locators = [e["locator"] for e in graph["evidence"]]
     assert "https://de.wikipedia.org/wiki/Berlin" in locators
     # Captures are provenance, NOT extra knowledge nodes: still just the 2 fact nodes.

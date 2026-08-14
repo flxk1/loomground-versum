@@ -49,28 +49,28 @@
 
 ### Features
 
-* `iter_records_from_transactions` + `tombstones_from_bytes` — read the sink's records from IN-MEMORY transaction payloads instead of an on-disk store, so a consumer serving a *sealed* workspace (whose decrypted transactions live only in memory, never plaintext on disk) can read knowledge without materialising the store. Same identity-upsert latest-wins projection and record shape as `iter_records`; `tombstones_from_bytes` builds the erasure projection from the `_erasure.json` bytes. Unblocks the RVND memory-split body-drop over sealed workspaces.
+* `iter_records_from_transactions` + `tombstones_from_bytes` — read the sink's records from IN-MEMORY transaction payloads instead of an on-disk store, so a consumer serving a *sealed* workspace (whose decrypted transactions live only in memory, never plaintext on disk) can read knowledge without materialising the store. Same identity-upsert latest-wins projection and record shape as `iter_records`; `tombstones_from_bytes` builds the erasure projection from the `_erasure.json` bytes. Unblocks the host memory-split body-drop over sealed workspaces.
 
 ## [0.11.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.10.0...loomground-versum-v0.11.0) (2026-08-06)
 
 
 ### Features
 
-* `append_records` — batch identity-upsert: many mutable records in ONE dimensioned-subgraph transaction (one durable fsync) instead of one per record. The batched analogue of `append_record(identity=True)` for a consumer that persists N changed rows per flush (an RVND grounder store retirement / bulk import), amortising the durable per-transaction write and leaving one transaction to validate on read. Read-side latest-wins per node id is identical; an empty batch is a no-op; idempotent by canonical `(records, versions, dimension, actor)`.
+* `append_records` — batch identity-upsert: many mutable records in ONE dimensioned-subgraph transaction (one durable fsync) instead of one per record. The batched analogue of `append_record(identity=True)` for a consumer that persists N changed rows per flush (an host grounder store retirement / bulk import), amortising the durable per-transaction write and leaving one transaction to validate on read. Read-side latest-wins per node id is identical; an empty batch is a no-op; idempotent by canonical `(records, versions, dimension, actor)`.
 
 ## [0.10.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.9.0...loomground-versum-v0.10.0) (2026-08-06)
 
 
 ### Features
 
-* `append_record(identity=True, version=…)` — opt-in identity-upsert for MUTABLE records: a stable node id `record:<slug>` (no content hash) plus a caller-supplied monotonic `version` folded into the idempotency key, so an entity edited in place supersedes its prior state instead of forking a node per edit. The read projection (`iter_records`/`get_record`/`search_records`) collapses identity records to their latest version per id; content-addressed records and facts embed a content hash, never collide, and stream unchanged (backward-compatible). Erasure by the stable id hides all revisions. Unblocks the RVND grounder-store retirement and the memory-split body-drop.
+* `append_record(identity=True, version=…)` — opt-in identity-upsert for MUTABLE records: a stable node id `record:<slug>` (no content hash) plus a caller-supplied monotonic `version` folded into the idempotency key, so an entity edited in place supersedes its prior state instead of forking a node per edit. The read projection (`iter_records`/`get_record`/`search_records`) collapses identity records to their latest version per id; content-addressed records and facts embed a content hash, never collide, and stream unchanged (backward-compatible). Erasure by the stable id hides all revisions. Unblocks the host grounder-store retirement and the memory-split body-drop.
 
 ## [0.9.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.7.0...loomground-versum-v0.9.0) (2026-08-06)
 
 
 ### Features
 
-* `append_record` — a full runtime **record** (an RVND-style problem/solution pair with arbitrary domain facets) as first-class knowledge, the rich analogue of `append_fact`; the whole pair body rides losslessly in the node's `properties.record`, searchable through the existing read path ([e1cf3e2](https://github.com/flxk1/loomground-versum/commit/e1cf3e2))
+* `append_record` — a full runtime **record** (an host-style problem/solution pair with arbitrary domain facets) as first-class knowledge, the rich analogue of `append_fact`; the whole pair body rides losslessly in the node's `properties.record`, searchable through the existing read path ([e1cf3e2](https://github.com/flxk1/loomground-versum/commit/e1cf3e2))
 * `iter_records` — erasure-honoring enumeration of the sink, the companion to `get_record` (by id) and `search_records` (by query) for consumers that must list or re-index everything the store holds ([5c17d69](https://github.com/flxk1/loomground-versum/commit/5c17d69))
 * `BM25.score` optional `weights=` — down-weight expanded/synonym query terms; `weights=None` is exactly the historical unweighted score (backward-compatible), so a consumer can keep query-expansion weighting while consuming versum's BM25 ([f201e07](https://github.com/flxk1/loomground-versum/commit/f201e07))
 * runtime knowledge-append API — `append_fact` / `append_inference` write source-less runtime knowledge (a fact triple, a reasoning path) through the canonical dimensioned-subgraph sink as an explicitly-marked runtime provenance class (`grounding="runtime"`, no manufactured grounding), idempotent and searchable through the existing read path ([7cd44cf](https://github.com/flxk1/loomground-versum/commit/7cd44cfcca72d8c57a8c2b938e85a5cf5a07f222))

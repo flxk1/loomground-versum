@@ -1,7 +1,7 @@
 """Full-record retrieval (``get_record`` / ``search_records``) over the sink store.
 
 ``search_similar`` / ``from_dimensioned_store`` return *lossy* hits — ``doc_id``, ``score``,
-``snippet[:200]`` — which is enough to rank but not to reconstruct a knowledge item. RVND is
+``snippet[:200]`` — which is enough to rank but not to reconstruct a knowledge item. host is
 retiring its parallel knowledge store (``memory.py``) and must read the WHOLE record back from
 the versum sink: the node (type + dimensions + all properties), every relation touching it
 (both directions), and the transaction's ``source`` / ``evidence`` provenance. It then applies
@@ -23,7 +23,7 @@ def _store(tmp_path):
 def test_get_record_returns_node_relation_and_provenance(tmp_path):
     store = _store(tmp_path)
     append_fact(store, subject="controller", predicate="must ensure",
-                object="data protection", dimension="causal", actor="rvnd-agent")
+                object="data protection", dimension="causal", actor="agent")
     subject_id, object_id = fact_node_ids(subject="controller", object="data protection")
 
     record = get_record(store, subject_id)
@@ -37,7 +37,7 @@ def test_get_record_returns_node_relation_and_provenance(tmp_path):
     # The full record surfaces the explicit runtime provenance class (not span-grounded), so a
     # consumer can apply its own enforcement knowing the node was asserted at runtime.
     assert record["properties"]["grounding"] == "runtime"
-    assert record["properties"]["actor"] == "rvnd-agent"
+    assert record["properties"]["actor"] == "agent"
 
     # Every relation touching the node (both directions). The subject is the source end.
     assert len(record["relations"]) == 1
@@ -48,18 +48,18 @@ def test_get_record_returns_node_relation_and_provenance(tmp_path):
     assert relation["target"]["value"] == object_id
 
     # The transaction's source/evidence provenance — the synthetic runtime source.
-    assert record["source"]["source_id"] == "runtime:rvnd-agent"
+    assert record["source"]["source_id"] == "runtime:agent"
     assert record["source"]["content_digest"].startswith("sha256:")
     assert record["evidence"]
-    assert record["evidence"][0]["locator"].startswith("runtime:rvnd-agent:")
-    assert record["evidence"][0]["source_id"] == "runtime:rvnd-agent"
+    assert record["evidence"][0]["locator"].startswith("runtime:agent:")
+    assert record["evidence"][0]["source_id"] == "runtime:agent"
 
 
 def test_get_record_finds_relation_from_the_target_side(tmp_path):
     """'both directions': the object node's record carries the same relation (target end)."""
     store = _store(tmp_path)
     append_fact(store, subject="controller", predicate="must ensure",
-                object="data protection", dimension="causal", actor="rvnd-agent")
+                object="data protection", dimension="causal", actor="agent")
     subject_id, object_id = fact_node_ids(subject="controller", object="data protection")
 
     record = get_record(store, object_id)
@@ -73,7 +73,7 @@ def test_get_record_finds_relation_from_the_target_side(tmp_path):
 def test_search_records_carries_full_record_and_score(tmp_path):
     store = _store(tmp_path)
     append_fact(store, subject="controller", predicate="must ensure",
-                object="data protection", dimension="causal", actor="rvnd-agent")
+                object="data protection", dimension="causal", actor="agent")
     subject_id, _ = fact_node_ids(subject="controller", object="data protection")
 
     hits = search_records(store, "controller data protection", k=5)
@@ -85,7 +85,7 @@ def test_search_records_carries_full_record_and_score(tmp_path):
                         "source", "evidence", "relations", "score"}
     assert hit["score"] > 0
     assert hit["properties"]["statement"] == "controller must ensure data protection"
-    assert hit["source"]["source_id"] == "runtime:rvnd-agent"
+    assert hit["source"]["source_id"] == "runtime:agent"
     assert hit["relations"] and hit["relations"][0]["relation_type"] == "must-ensure"
 
     # search_similar remains untouched (back-compat): it still returns lossy snippet hits.
@@ -97,7 +97,7 @@ def test_search_records_carries_full_record_and_score(tmp_path):
 def test_erased_node_is_absent_from_get_and_search(tmp_path):
     store = _store(tmp_path)
     append_fact(store, subject="Alice", predicate="located in", object="Berlin",
-                dimension="geography", actor="rvnd-agent")
+                dimension="geography", actor="agent")
     subject_id, _ = fact_node_ids(subject="Alice", object="Berlin")
 
     assert get_record(store, subject_id) is not None
@@ -105,7 +105,7 @@ def test_erased_node_is_absent_from_get_and_search(tmp_path):
                for h in search_records(store, "Alice Berlin", k=5))
 
     # Erase through the sink convention ("sink:" + raw node_id).
-    erasure.delete(store, "sink:" + subject_id, reason="test", actor="rvnd-agent")
+    erasure.delete(store, "sink:" + subject_id, reason="test", actor="agent")
 
     assert get_record(store, subject_id) is None
     assert not any(h["node_id"] == subject_id
@@ -116,7 +116,7 @@ def test_erased_node_is_absent_from_get_and_search(tmp_path):
 def test_get_record_unknown_id_returns_none(tmp_path):
     store = _store(tmp_path)
     append_fact(store, subject="Alice", predicate="located in", object="Berlin",
-                dimension="geography", actor="rvnd-agent")
+                dimension="geography", actor="agent")
     assert get_record(store, "entity:does-not-exist:0000000000") is None
 
 
