@@ -2,8 +2,8 @@
 """append_record identity-upsert — a MUTABLE entity supersedes in place.
 
 The sink is an append-only, replayable transaction log; identity mode adds an
-event-sourced latest-wins projection so a consumer with mutable records (an RVND
-grounder work/claim edited in place) reads the current state, not every
+event-sourced latest-wins projection so a consumer with mutable records (an
+agent-edited work/claim) reads the current state, not every
 superseded revision — while content-addressed records and facts are untouched.
 """
 from __future__ import annotations
