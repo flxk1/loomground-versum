@@ -45,7 +45,7 @@ def own_license(root: Path = ROOT) -> str:
 def add(items: dict[str, dict], name: str, version: str, license_id: str, source: str):
     name = norm(name)
     if not license_id:
-        license_id = "Apache-2.0" if name.startswith(("loomground-", "rvnd-")) else KNOWN.get(name, "")
+        license_id = "Apache-2.0" if name.startswith(("loomground-",)) else KNOWN.get(name, "")
     if not license_id:
         raise ValueError(f"unknown or missing license for dependency {name!r}")
     if license_id not in ALLOWED:
@@ -75,7 +75,7 @@ def inventory() -> dict:
         raw = tomllib.loads(pyproject.read_text(encoding="utf-8"))
         for spec in raw.get("project", {}).get("dependencies", []):
             name = re.split(r"[@<>=!~;\[ ]", spec, maxsplit=1)[0]
-            if norm(name).startswith(("loomground-", "rvnd-")):
+            if norm(name).startswith(("loomground-",)):
                 runtime_first_party.add(norm(name))
             else:
                 runtime_external.add(norm(name))
@@ -92,7 +92,7 @@ def inventory() -> dict:
                     raise ValueError(f"release dependency is not exactly pinned: {line!r}")
                 release_pins.add(norm(name))
                 add(items, name, version.removeprefix("=="), "", req.name)
-            elif norm(name).startswith(("loomground-", "rvnd-")):
+            elif norm(name).startswith(("loomground-",)):
                 match = re.fullmatch(
                     r"[^ ]+\s*@\s*git\+https://[^ ]+@([0-9a-f]{40})", line)
                 if not match:
