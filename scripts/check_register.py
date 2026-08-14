@@ -6,7 +6,7 @@ not the build session.
 This gate scans every tracked ``*.py`` and ``*.md`` file and fails on lines
 that carry:
 
-- plan citations (``SOLVER-PLAN``, ``VERSUM-PLAN``, ``RVND-PLAN``)
+- plan citations (``SOLVER-PLAN``, ``VERSUM-PLAN``, ``host-PLAN``)
 - the retired ``loomground-ref`` repo name
 - wrong repo slugs (``flxk1/solver``, ``flxk1/versum``, bare
   ``github.com/flxk1/loomground``)
@@ -37,7 +37,7 @@ EXCLUDED_PATH_FRAGMENTS = ("/fixtures/", "claim_axes_vectors")
 SCANNED_SUFFIXES = (".py", ".md")
 
 PATTERNS = [
-    ("plan citation", re.compile(r"\b(SOLVER|VERSUM|RVND)-PLAN\b")),
+    ("plan citation", re.compile(r"\b(SOLVER|VERSUM|host)-PLAN\b")),
     ("old repo name", re.compile(r"\bloomground-ref\b")),
     (
         "wrong repo slug",

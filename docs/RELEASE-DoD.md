@@ -62,7 +62,7 @@ specific to any one of them.
 
 - [ ] Dependabot (or equivalent) is configured for both the CI-action ecosystem and
       the language's package ecosystem, on a low-noise (e.g. weekly, grouped) schedule.
-- [ ] The RVND governance lane owns automated release review for the repository,
+- [ ] The host governance lane owns automated release review for the repository,
       with stricter checks for normative/contract-bearing paths, package metadata,
       and release automation. No human-review dependency is implied.
 - [ ] A `SECURITY.md` states the supported-versions policy and how to report a

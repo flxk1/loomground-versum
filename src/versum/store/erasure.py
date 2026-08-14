@@ -13,8 +13,8 @@ Two erasure grades, both recorded **through the append-only event log**
 
 The tombstone set is itself a projection (``<kg_root>/_erasure.json``) that folds the
 erasure events out of the log; reads consult it through :func:`load_tombstones`. Ported from
-RVND's WorkspaceMemory erasure layer (``delete`` / ``delete_document`` / ``purge_pair`` /
-``purge_document``) so RVND can retire its parallel store.
+host's WorkspaceMemory erasure layer (``delete`` / ``delete_document`` / ``purge_pair`` /
+``purge_document``) so host can retire its parallel store.
 
 A node id is the same ``"<type>:<id>"`` token a search hit carries
 (:attr:`versum.store.retrieve.Doc.doc_id`) — ``"claim:<item_id>"`` or
@@ -680,7 +680,7 @@ def purge(kg_root, node_id: str, *, reason: str = "", actor: str = "",
 
 def delete_by_source(kg_root, canonical_urn: str, *, reason: str = "", actor: str = "",
                      observed_at: str | None = None) -> dict:
-    """Logically delete every node of one source document (RVND ``delete_document``).
+    """Logically delete every node of one source document (host ``delete_document``).
 
     Every claim carrying ``canonical_urn`` is tombstoned via a single signed
     ``source.deleted`` event; content and audit trail remain, recoverable through
@@ -720,7 +720,7 @@ def restore_source(kg_root, canonical_urn: str, *, actor: str = "",
 
 def purge_by_source(kg_root, canonical_urn: str, *, reason: str = "", actor: str = "",
                     observed_at: str | None = None) -> dict:
-    """Hard GDPR Art.17 erasure of a whole source document (RVND ``purge_document``).
+    """Hard GDPR Art.17 erasure of a whole source document (host ``purge_document``).
 
     Every claim row, the source row, and the fingerprint for ``canonical_urn`` are
     physically removed; any dimensioned-subgraph transaction bound to the same source is

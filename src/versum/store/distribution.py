@@ -19,8 +19,8 @@ distribution events by :func:`rebuild_distribution_projection`; reads consult it
 projection before the publish filter runs, so an erased node is never distributed even if it
 was published earlier (see :func:`versum.store.hierarchy.aggregate_docs`).
 
-Ported from RVND's ``WorkspaceMemory.publish`` / ``unpublish`` (the B5 distributed-memory
-path) so RVND can retire the last of its parallel store.
+Ported from host's ``WorkspaceMemory.publish`` / ``unpublish`` (the B5 distributed-memory
+path) so host can retire the last of its parallel store.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ SOURCE_UNPUBLISH_EVENT = "source.unpublished"
 DISTRIBUTION_EVENT_TYPES = frozenset({
     PUBLISH_EVENT, UNPUBLISH_EVENT, SOURCE_PUBLISH_EVENT, SOURCE_UNPUBLISH_EVENT})
 
-#: The only distribution scope RVND ever used; other values are reserved for future use.
+#: The only distribution scope host ever used; other values are reserved for future use.
 DEFAULT_SCOPE = "descendants"
 
 _NODE_TYPES = ("claim", "concept")
@@ -273,7 +273,7 @@ def _unpublish_sink_node(root: Path, target: str, reason: str, actor: str,
 
 def publish_source(kg_root, canonical_urn: str, *, scope: str = DEFAULT_SCOPE,
                    reason: str = "", actor: str = "", observed_at: str | None = None) -> dict:
-    """Publish every claim of one source document to descendants (RVND source-level publish).
+    """Publish every claim of one source document to descendants (host source-level publish).
 
     Every claim carrying ``canonical_urn`` flows down via a single signed ``source.published``
     event; the pair bodies stay in this folder's store — nothing is duplicated.
