@@ -1,0 +1,53 @@
+{
+  "nd_system": {
+    "id": "meaningful-human-control",
+    "namespace": "oversight.mhc",
+    "version": "1.0.0",
+    "federation_5d_version": "1",
+    "describes": "The constituents of meaningful human control over an automated decision, as a typed contextual coordinate system. Oversight is commonly decomposed into observability, intervenability, comprehensibility, authority and timeliness, and the decomposition matters because oversight can be formally present while one constituent is at its lowest level — which makes it functionally absent. Each axis is ordered ascending (its vocabulary runs from least to most), so `precedes` compares two claims on the same axis. This engine stores coordinates and compares them; it computes no aggregate and renders no verdict on whether control was meaningful.",
+    "axes": {
+      "observability": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["none", "outcome_only", "sampled", "complete"],
+        "primitives": ["equal", "precedes"]
+      },
+      "intervenability": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["none", "after_the_fact", "interruptible", "pre_release"],
+        "primitives": ["equal", "precedes"]
+      },
+      "comprehensibility": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["none", "asserted", "measured_low", "measured_adequate"],
+        "primitives": ["equal", "precedes"]
+      },
+      "authority": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["none", "advisory", "vetoing", "directing"],
+        "primitives": ["equal", "precedes"]
+      },
+      "timeliness": {
+        "value_type": "controlled_identifier",
+        "cardinality": "one",
+        "vocabulary": ["after_effect", "before_effect", "before_commitment"],
+        "primitives": ["equal", "precedes"]
+      }
+    },
+    "validation": {
+      "unknown_values": "reject",
+      "missing_coordinates": "preserve_unknown",
+      "provenance_required": true
+    },
+    "notes": {
+      "unset_is_not_zero": "missing_coordinates is preserve_unknown, so an axis nobody assigned reads UNKNOWN and never as its lowest level. An unmeasured constituent must not be reportable as a satisfied one, and it must not be reportable as a failed one either.",
+      "comprehensibility_is_not_self_measurable": "Four constituents can be read off a system. Comprehensibility is a property of the person reading, so this engine cannot derive it. That is why the vocabulary separates `asserted` (someone claimed a reader understood) from `measured_low` / `measured_adequate` (a reader was actually tested). An `asserted` value is a claim about a private mental state and carries the weight of one.",
+      "provenance_required": "Every assignment must carry provenance. An oversight coordinate asserted by nobody in particular is exactly the unfalsifiable claim this decomposition exists to expose.",
+      "no_aggregate_here": "The multiplicative reading — any constituent at its floor collapsing the whole — is a REASONING step, and belongs to a consumer that owns the OPEN-dominant fold. Storing an aggregate beside the coordinates would create a second place for the two to disagree.",
+      "scales_are_illustrative": "These vocabularies are a worked example, not a standard. A deployment with a different oversight model swaps them and keeps the shape."
+    }
+  }
+}
