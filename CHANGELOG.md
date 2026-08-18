@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.14.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.13.0...loomground-versum-v0.14.0) (2026-08-18)
+
+
+### Features
+
+* **examples:** meaningful-human-control as an nD coordinate system ([8447070](https://github.com/flxk1/loomground-versum/commit/84470701d5c0884647440afc85232165eeb1688d))
+* **profiles:** read a mandate from the document that conferred it ([40f1558](https://github.com/flxk1/loomground-versum/commit/40f15583b59c0f3f41853acf96ef4661015e5ba3))
+* **trajectory:** an action sequence as an ordinary process composition ([267de0f](https://github.com/flxk1/loomground-versum/commit/267de0f6e96395747f47f04756c63f79d145c974))
+
+
+### Documentation
+
+* **roadmap:** knowledge plane and agentic oversight ([7ad1acb](https://github.com/flxk1/loomground-versum/commit/7ad1acb1f5451841f2deeb8fde50a24e5bc13359))
+* **roadmap:** knowledge plane and agentic oversight ([82ea667](https://github.com/flxk1/loomground-versum/commit/82ea667c0e9412413fb92ae4f4401f0bfb3ee8b8))
+
 ## [0.13.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.12.0...loomground-versum-v0.13.0) (2026-08-10)
 
 
