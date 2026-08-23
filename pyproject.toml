@@ -9,7 +9,7 @@ license-files = ["LICENSES/Apache-2.0.txt", "NOTICE"]
 authors = [{ name = "Loomground Contributors" }]
 dependencies = [
   "pdfplumber>=0.10",
-  "loomground-governance>=0.8,<0.9",
+  "loomground-governance>=0.8,<0.12",
   "loomground-deontic>=0.1,<0.2",
 ]
 
