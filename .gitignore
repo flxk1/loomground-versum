@@ -10,3 +10,6 @@ outputs/
 venv/
 .DS_Store
 .claude/
+
+# ctrl orchestration scratch ledger — never part of the package
+work/
