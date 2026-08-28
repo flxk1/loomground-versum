@@ -92,6 +92,7 @@ declarative configuration without changing the engine.
 ```bash
 git clone https://github.com/flxk1/loomground-versum.git
 cd loomground-versum
+pip install -r requirements-dev.txt   # git-installs the pinned loomground kits
 pip install .
 ```
 

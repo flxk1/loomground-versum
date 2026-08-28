@@ -2,7 +2,8 @@
 # pyproject.toml. Kept out of package metadata so the built distribution stays
 # index-clean. Install this before `pip install .` so the ranges are already
 # satisfied and pip never needs an index for the sibling packages.
-# Immutable release commits: governance v0.8.2 and deontic v0.1.2.
+# Immutable release commits, pinned by SHA so pip never needs an index for the
+# sibling packages: governance 0.11.0, and the deontic kit at the commit below.
 loomground-governance @ git+https://github.com/flxk1/loomground-governance@cf09ad8336c0ef47e700952896314472129fa4c7
 loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@6fc6df578a35be58924e8d3700fb992b24d68bbb
 pytest==9.1.1
