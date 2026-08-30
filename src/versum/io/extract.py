@@ -234,11 +234,48 @@ def _marker_regex(pattern: str):
     return re.compile(left + esc + right, re.IGNORECASE)
 
 
+# ── negation-aware marker resolution (safety-critical) ────────────
+# A short marker can sit as a PREFIX of a longer clause that a following negation word
+# reverses, when the profile's marker table has no dedicated compound entry spelling out
+# that exact negated form. Emitting the short match there silently drops the negation and
+# inverts the claim's force — e.g. a profile whose surface vocabulary opposes a permissive
+# marker to a prohibitive one can end up stamping a prohibition as a permission, the worst
+# failure mode for a fail-closed grounding system. Negation words are grammar closed-class,
+# not domain vocabulary (same status as the label-hygiene word lists above) — this is a
+# general text-extraction correctness fix, not a legal-specific one. Parameterized so a
+# caller can widen the set for other languages.
+NEGATION_TOKENS = frozenset({"not", "no", "nicht"})
+NEGATION_PREFIXES = ("kein",)  # German negation article, all inflections: kein/e/en/er/es/em
+_NEG_LOOKAHEAD_RE = re.compile(r"[\s,;:]{0,8}([A-Za-zÀ-ÖØ-öø-ÿ]+)")
+
+
+def _negated_immediately_after(text: str, pos: int) -> bool:
+    """True when ``text`` at ``pos`` begins, after only whitespace/light punctuation (a small
+    window — no sentence-crossing), with a negation token. Used to catch a marker match whose
+    matched text itself stops short of a negation word that the marker table has no dedicated
+    compound entry for (a shorter marker sitting as a prefix of a longer negated clause)."""
+    m = _NEG_LOOKAHEAD_RE.match(text, pos)
+    if not m:
+        return False
+    word = m.group(1).lower()
+    return word in NEGATION_TOKENS or word.startswith(NEGATION_PREFIXES)
+
+
 def candidate_items(unit: dict, source_urn: str, profile) -> list[dict]:
     items, seen = [], set()
     text, base = unit["text"], unit["start"]
     for pattern, predicate, modality in profile.markers:
         for m in _marker_regex(pattern).finditer(text):
+            # Negation-aware overlapping-marker resolution: a marker match immediately
+            # followed by an unconsumed negation token has had its force reversed by text
+            # the match itself didn't capture — drop it. When the profile ALSO has a
+            # longer, negation-bearing marker covering this same span, that longer match's
+            # own trailing text sits past the negation, so it is unaffected and still
+            # emitted — net effect: longest/negation-bearing-match-wins. When no such
+            # dedicated marker exists, suppressing the shorter match fails closed instead
+            # of emitting a claim whose polarity was silently reversed.
+            if _negated_immediately_after(text, m.end()):
+                continue
             # one item per (predicate, sentence) to avoid double-counting overlaps
             s_start = text.rfind(".", 0, m.start()) + 1
             s_end = text.find(".", m.end())
