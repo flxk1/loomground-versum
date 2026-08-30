@@ -58,6 +58,20 @@ def _bounded_text(s: str, ceiling: int = CLAIM_TEXT_CEILING) -> str:
         cut = ceiling
     return s[:cut].rstrip() + _TRUNC_MARK
 
+# real sentences (enumerated-list provisions) run 1-7k chars; ceiling guards only a
+# pathological span (no terminal period found). Never fabricate punctuation on cut.
+CLAIM_TEXT_CEILING = int(os.environ.get("VERSUM_CLAIM_TEXT_CEILING", "8000"))
+_TRUNC_MARK = " …"
+
+
+def _bounded_text(s: str, ceiling: int = CLAIM_TEXT_CEILING) -> str:
+    if len(s) <= ceiling:
+        return s
+    cut = s.rfind(" ", 0, ceiling)
+    if cut <= 0:
+        cut = ceiling
+    return s[:cut].rstrip() + _TRUNC_MARK
+
 
 # C0 control chars a PDF/text layer can emit that break strict CSV parsing and pollute
 # claim text — everything below 0x20 except TAB and NEWLINE (and DEL). Stripped at ingestion,
