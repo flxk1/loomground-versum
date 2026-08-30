@@ -44,6 +44,20 @@ RECITAL_RE = re.compile(r"(?m)^\s*\((\d{1,3})\)\s")     # numbered recitals "(1)
 CJK_ARTICLE_RE = re.compile(r"第\s*([一二三四五六七八九十百千0-9]+(?:の[一二三四五六七八九十0-9]+)?)\s*条"
                             r"|제\s*(\d+(?:의\d+)?)\s*조")
 
+# real sentences (enumerated-list provisions) run 1-7k chars; ceiling guards only a
+# pathological span (no terminal period found). Never fabricate punctuation on cut.
+CLAIM_TEXT_CEILING = int(os.environ.get("VERSUM_CLAIM_TEXT_CEILING", "8000"))
+_TRUNC_MARK = " …"
+
+
+def _bounded_text(s: str, ceiling: int = CLAIM_TEXT_CEILING) -> str:
+    if len(s) <= ceiling:
+        return s
+    cut = s.rfind(" ", 0, ceiling)
+    if cut <= 0:
+        cut = ceiling
+    return s[:cut].rstrip() + _TRUNC_MARK
+
 
 # C0 control chars a PDF/text layer can emit that break strict CSV parsing and pollute
 # claim text — everything below 0x20 except TAB and NEWLINE (and DEL). Stripped at ingestion,
@@ -322,7 +336,7 @@ def candidate_items(unit: dict, source_urn: str, profile) -> list[dict]:
                 "unit_type": unit["unit_type"],
                 "span": span,
                 "marker": pattern,
-                "text": sentence[:400],
+                "text": _bounded_text(sentence),
                 # closed axes (candidate; curator confirms)
                 "polarity": polarity,
                 "type": "is" if polarity == "D" else "ought",
