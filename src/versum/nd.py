@@ -55,6 +55,67 @@ def _tuple(value) -> tuple:
     return (value,)
 
 
+def _interval_bounds(value) -> tuple[str, str] | None:
+    """Normalise an interval-or-point value to (from, to); ``None`` if unresolvable.
+
+    A bare non-empty string is a degenerate point interval [v, v] — this keeps every
+    pre-existing point-only ``time`` value comparable without changing its stored shape.
+    """
+    if isinstance(value, dict):
+        frm, to = value.get("from"), value.get("to")
+    elif isinstance(value, (list, tuple)) and len(value) == 2:
+        frm, to = value[0], value[1]
+    elif isinstance(value, str) and value:
+        frm = to = value
+    else:
+        return None
+    frm = frm if frm else to
+    to = to if to else frm
+    if not isinstance(frm, str) or not isinstance(to, str) or not frm or not to:
+        return None
+    return (frm, to)
+
+
+def _malformed_interval(value) -> bool:
+    if isinstance(value, dict):
+        if not set(value) <= {"from", "to"} or not value:
+            return True
+        frm, to = value.get("from"), value.get("to")
+    elif isinstance(value, (list, tuple)):
+        if len(value) != 2:
+            return True
+        frm, to = value
+    else:
+        return False  # not interval-shaped: a bare point, validated as-is
+    for v in (frm, to):
+        if v is not None and (not isinstance(v, str) or not v.strip()):
+            return True
+    return isinstance(frm, str) and isinstance(to, str) and frm and to and frm > to
+
+
+def _interval_relation(rel: "Primitive", left: Any, right: Any) -> "Truth | None":
+    """Geometric interval comparison; ``None`` when either side isn't interval-shaped."""
+    lb, rb = _interval_bounds(left), _interval_bounds(right)
+    if lb is None or rb is None:
+        return None
+    (a1, a2), (b1, b2) = lb, rb
+    if rel == Primitive.EQUAL:
+        return Truth.TRUE if (a1, a2) == (b1, b2) else Truth.FALSE
+    if rel == Primitive.DISJOINT:
+        return Truth.TRUE if (a2 < b1 or b2 < a1) else Truth.FALSE
+    if rel == Primitive.OVERLAPS:
+        return Truth.TRUE if (a1 <= b2 and b1 <= a2) else Truth.FALSE
+    if rel == Primitive.CONTAINS:
+        return Truth.TRUE if (a1 <= b1 and b2 <= a2) else Truth.FALSE
+    if rel == Primitive.CONTAINED_BY:
+        return Truth.TRUE if (b1 <= a1 and a2 <= b2) else Truth.FALSE
+    if rel == Primitive.PRECEDES:
+        return Truth.TRUE if a2 < b1 else Truth.FALSE
+    if rel == Primitive.SUCCEEDS:
+        return Truth.TRUE if a1 > b2 else Truth.FALSE
+    return None
+
+
 @dataclass(frozen=True)
 class AxisSpec:
     axis_id: str
@@ -127,6 +188,14 @@ class AxisSpec:
             out.append(f"axis {self.axis_id}: value {value!r} is not numeric")
         if self.value_type == "boolean" and not isinstance(value, bool):
             out.append(f"axis {self.axis_id}: value {value!r} is not boolean")
+        if self.value_type == "interval":
+            if isinstance(value, (dict, list, tuple)):
+                if _malformed_interval(value):
+                    out.append(f"axis {self.axis_id}: malformed interval {value!r}")
+            elif not isinstance(value, str) or not value:
+                out.append(
+                    f"axis {self.axis_id}: interval value {value!r} must be a date "
+                    "or a {from,to} pair")
         if self.value_type == "quantity":
             if not isinstance(value, dict) or "amount" not in value:
                 out.append(f"axis {self.axis_id}: quantity requires an amount")
@@ -227,6 +296,10 @@ class NDSystem:
         if rel.value not in axis.primitives and not (
                 inverse and inverse.value in axis.primitives):
             return Truth.UNKNOWN
+        if axis.value_type == "interval":
+            geo = _interval_relation(rel, left, right)
+            if geo is not None:
+                return geo
         if rel == Primitive.EQUAL:
             return Truth.TRUE if left == right else Truth.FALSE
         for row in self.ontology_relations:

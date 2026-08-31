@@ -22,6 +22,7 @@ import hashlib
 from pathlib import Path
 
 from ..io import extract as ex
+from ..io.consume import time_coordinate as _time_coordinate
 from ..identity import fingerprint as fp
 from . import graph as g
 from . import kg
@@ -187,7 +188,7 @@ def index_folder(folder, profile_id: str = "generic", out=None,
             prov = consume.provenance_for(relpath=rel, filename=p.name)
             if prov:
                 nd_context = {"jurisdiction": prov.get("jurisdiction", ""),
-                              "time": prov.get("detected_year", "")}
+                              "time": _time_coordinate(prov)}
         if nd_context is None and canonical:
             side = next((s for s in sidecars if s.get("canonical_urn") == canonical), None)
             if side:
@@ -197,7 +198,7 @@ def index_folder(folder, profile_id: str = "generic", out=None,
             from ..nd import core_system
             core = core_system()
             for axis_id in ("jurisdiction", "time"):
-                for value in sorted(fp._coord_set(nd_context, axis_id)):
+                for value in fp.coord_values(nd_context, axis_id):
                     aid = "nda-" + hashlib.sha1(
                         f"{urn}|{axis_id}|{value}".encode()).hexdigest()[:12]
                     nd_assignments.append({

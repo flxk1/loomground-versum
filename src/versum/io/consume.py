@@ -32,9 +32,24 @@ REGISTRY_COLUMNS = [
     "size_bytes",
 ]
 
-# the subset the Versum carries forward as provenance context for a reused source
+# the subset the Versum carries forward as provenance context for a reused source.
+# ``valid_to`` is NOT one of the KG's 19 declared columns above — it is an optional
+# extension column: carried when the registry CSV happens to have it (pairing with
+# ``detected_year`` as an interval end), absent (and so "") for every registry that
+# doesn't. A row with no ``valid_to`` behaves exactly as before this axis existed.
 _CARRY = ("canonical_urn", "version_urn", "primary_topic", "topics",
-          "jurisdiction", "detected_year")
+          "jurisdiction", "detected_year", "valid_to")
+
+
+def time_coordinate(prov: dict) -> str | dict:
+    """The nd ``time`` coordinate for a carried provenance row.
+
+    An interval ``{from, to}`` when both a start (``detected_year``) and an end
+    (``valid_to``) are present; otherwise the bare point (unchanged legacy shape).
+    """
+    frm = (prov.get("detected_year") or "").strip()
+    to = (prov.get("valid_to") or "").strip()
+    return {"from": frm, "to": to} if frm and to else frm
 
 
 def _norm(relpath: str) -> str:
