@@ -47,6 +47,39 @@ def _coord_set(ctx, key) -> set:
     return {s} if s else set()
 
 
+def _coord_interval(val) -> dict | None:
+    """The canonical ``{from, to}`` interval carried by ``val``, else ``None``.
+
+    Only a ``{"from": ..., "to": ...}`` dict with both endpoints non-empty is an
+    interval; anything else (a bare point string, a list, ``None``) is not — it stays
+    a point, handled by :func:`_coord_set` as before.
+    """
+    if not isinstance(val, dict):
+        return None
+    frm = str(val.get("from") or "").strip()
+    to = str(val.get("to") or "").strip()
+    return {"from": frm, "to": to} if frm and to else None
+
+
+def _coord_value(ctx, key):
+    """The nd coordinate for ``key``: a single interval dict when interval-shaped,
+    else the deduped point set — unchanged behaviour for every non-interval value."""
+    interval = _coord_interval(ctx.get(key)) if ctx else None
+    return interval if interval is not None else _coord_set(ctx, key)
+
+
+def coord_values(ctx, axis_id) -> list:
+    """Assignment-ready values for one nd axis: ONE canonical interval when
+    ``axis_id`` carries an interval-shaped value, else the sorted point set — this is
+    the identical list :func:`_coord_set` produced before intervals existed.
+    """
+    if ctx:
+        interval = _coord_interval(ctx.get(axis_id))
+        if interval is not None:
+            return [interval]
+    return sorted(_coord_set(ctx, axis_id))
+
+
 def fingerprint(source_urn: str, claims, profile, nd_context=None) -> dict:
     """Aggregate the claims of ``source_urn`` into a fixed-shape fingerprint.
 
@@ -68,7 +101,7 @@ def fingerprint(source_urn: str, claims, profile, nd_context=None) -> dict:
     nd = {
         "namespace": profile.namespace,
         "jurisdiction": _coord_set(nd_context, "jurisdiction"),
-        "time": _coord_set(nd_context, "time"),
+        "time": _coord_value(nd_context, "time"),
     }
     return {
         "source_urn": source_urn,

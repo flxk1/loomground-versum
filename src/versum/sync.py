@@ -551,7 +551,7 @@ def sync_library(library_cfg: dict, state: SyncState, store: KGStore, profile,
             prov = reg.provenance_for(relpath=match_rel, filename=filename)
             if prov:
                 nd_context = {"jurisdiction": prov.get("jurisdiction", ""),
-                              "time": prov.get("detected_year", "")}
+                              "time": consume.time_coordinate(prov)}
         if nd_context is None and provenance == "kg-canonical":
             side = next((s for s in sidecars
                          if s.get("canonical_urn") == canonical), None)
