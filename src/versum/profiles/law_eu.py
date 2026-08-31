@@ -51,8 +51,15 @@ QUANTIFICATIONS = frozenset({
     "universal", "existential", "definite", "count(n)", "null",
 })
 
-# instrument classes + rank (load-bearing for lex_superior)
+# instrument classes + rank (load-bearing for lex_superior).
+# Materialized view of loomground-topos rank (EU fiber), juris-first canonical.
+# Class-first keys are retained aliases until legal-navigator authority_type strings
+# migrate; case-law:ecthr/efta-court are CoE/EEA orders, never the EU fiber.
 INSTRUMENT_RANK = {
+    "eu:primary-law": 0,
+    "eu:regulation": 1, "eu:directive": 1, "eu:decision": 1,
+    "eu:recommendation": 2,
+    "eu:cjeu-judgment": None,
     "treaty:eu": 0, "charter:eu": 0,
     "regulation:eu": 1, "directive:eu": 1, "decision:eu": 1,
     "recommendation:eu": 2, "opinion:eu": 2,
