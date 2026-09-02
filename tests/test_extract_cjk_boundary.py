@@ -31,3 +31,14 @@ def test_latin_word_boundaries_still_enforced():
 def test_is_cjk_classifier():
     assert _is_cjk("し") and _is_cjk("应") and _is_cjk("한")
     assert not _is_cjk("a") and not _is_cjk("ä") and not _is_cjk("1")
+
+
+def test_cjk_article_segmentation():
+    """CJK statutes segment by 第N条 / 제N조 article headings — not one giant unit (which would
+    make each marker fire once). Arabic and kanji numerals + ordinal suffixes are recognised."""
+    from versum.io.extract import segment_units
+    jp = "第一条　この法律は…目的とする。第二条　この法律において…をいう。第九条の二　…する。第三条　…しなければならない。"
+    units = segment_units(jp)
+    assert len(units) >= 4 and {u["unit_type"] for u in units} == {"article"}
+    kr = "제1조 이 법은… 제2조 이 법에서… 제3조의2 … 제4조 …"
+    assert len(segment_units(kr)) >= 4
