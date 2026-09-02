@@ -224,13 +224,28 @@ def _quantification(sentence: str, profile) -> str:
     return "null"
 
 
+def _is_cjk(ch: str) -> bool:
+    """True for a kana / ideograph / hangul char — scripts written WITHOUT spaces, where every
+    char is a ``\\w`` char so a ``\\w`` word-boundary can never fire between two of them."""
+    o = ord(ch)
+    return (0x3040 <= o <= 0x30FF        # Hiragana + Katakana
+            or 0x3400 <= o <= 0x9FFF     # CJK Unified Ideographs (incl. Ext A)
+            or 0xAC00 <= o <= 0xD7A3     # Hangul syllables
+            or 0xF900 <= o <= 0xFAFF     # CJK Compatibility Ideographs
+            or 0x20000 <= o <= 0x2FA1F)  # CJK Unified Ideographs Ext B–F
+
+
 def _marker_regex(pattern: str):
     """A word-boundary matcher for a surface marker: the pattern must not sit INSIDE a larger
     word ("might" ≠ "mighty", "allows" ≠ "swallows", "fined" ≠ "defined"). Boundaries are added
-    only at word-character edges so multi-word / punctuated markers still match."""
+    only at word-character edges — and only for SPACED scripts. A CJK edge char (kana/ideograph/
+    hangul) is unspaced and always ``\\w``, so requiring a ``\\w``-boundary there would make the
+    marker never fire on real (unspaced) CJK statute prose; for a CJK edge the boundary is
+    dropped (substring match — the correct matcher for a space-less script). The negation-aware
+    resolution below still guards force in every script."""
     esc = re.escape(pattern)
-    left = r"(?<!\w)" if pattern[:1].isalnum() else ""
-    right = r"(?!\w)" if pattern[-1:].isalnum() else ""
+    left = r"(?<!\w)" if (pattern[:1].isalnum() and not _is_cjk(pattern[:1])) else ""
+    right = r"(?!\w)" if (pattern[-1:].isalnum() and not _is_cjk(pattern[-1:])) else ""
     return re.compile(left + esc + right, re.IGNORECASE)
 
 
