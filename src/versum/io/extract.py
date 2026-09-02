@@ -36,6 +36,13 @@ MAX_PDF_PAGES = int(os.environ.get("VERSUM_MAX_PDF_PAGES", "5000"))
 # ── unit segmentation ────────────────────────────────────────────
 ARTICLE_RE = re.compile(r"(?m)^\s*(Article|Artikel)\s+(\d+[a-z]?)\b")
 RECITAL_RE = re.compile(r"(?m)^\s*\((\d{1,3})\)\s")     # numbered recitals "(1) "
+# CJK article headings: JP/CN "第N条" (N = arabic or kanji numeral) and KR "제N조". CJK statute
+# text is unspaced and single-line, so these can't rely on a line-start anchor the way
+# ARTICLE_RE does — matched anywhere, which over-segments a table-of-contents harmlessly while
+# giving one unit per real article in the body (the alternative is one giant unit → markers
+# fire once each). Ordinal suffixes ("第九条の二") are captured whole so the id stays distinct.
+CJK_ARTICLE_RE = re.compile(r"第\s*([一二三四五六七八九十百千0-9]+(?:の[一二三四五六七八九十0-9]+)?)\s*条"
+                            r"|제\s*(\d+(?:의\d+)?)\s*조")
 
 
 # C0 control chars a PDF/text layer can emit that break strict CSV parsing and pollute
@@ -203,6 +210,10 @@ def segment_units(text: str) -> list[dict]:
     arts = list(ARTICLE_RE.finditer(text))
     if len(arts) >= 3:
         return _spans_from(arts, text, "article", lambda m: f"Article-{m.group(2)}")
+    cjk_arts = list(CJK_ARTICLE_RE.finditer(text))
+    if len(cjk_arts) >= 3:
+        return _spans_from(cjk_arts, text, "article",
+                           lambda m: f"Article-{m.group(1) or m.group(2)}")
     recs = list(RECITAL_RE.finditer(text))
     if len(recs) >= 5:
         return _spans_from(recs, text, "recital", lambda m: f"Recital-{m.group(1)}")
