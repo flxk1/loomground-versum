@@ -95,6 +95,8 @@ MARKERS_DE = (
     ("darf nicht", "prohibits", "prohibited"),
     ("ist untersagt", "prohibits", "prohibited"),
     ("ist verboten", "prohibits", "prohibited"),
+    ("unwirksam", "prohibits", "void"),
+    ("nichtig", "prohibits", "void"),
     ("hat das Recht", "grants", "permitted"),
     ("ist berechtigt", "grants", "permitted"),
     ("ist zulässig", "permits", "permitted"),
