@@ -36,6 +36,13 @@ MAX_PDF_PAGES = int(os.environ.get("VERSUM_MAX_PDF_PAGES", "5000"))
 # ── unit segmentation ────────────────────────────────────────────
 ARTICLE_RE = re.compile(r"(?m)^\s*(Article|Artikel)\s+(\d+[a-z]?)\b")
 RECITAL_RE = re.compile(r"(?m)^\s*\((\d{1,3})\)\s")     # numbered recitals "(1) "
+# CJK article headings: JP/CN "第N条" (N = arabic or kanji numeral) and KR "제N조". CJK statute
+# text is unspaced and single-line, so these can't rely on a line-start anchor the way
+# ARTICLE_RE does — matched anywhere, which over-segments a table-of-contents harmlessly while
+# giving one unit per real article in the body (the alternative is one giant unit → markers
+# fire once each). Ordinal suffixes ("第九条の二") are captured whole so the id stays distinct.
+CJK_ARTICLE_RE = re.compile(r"第\s*([一二三四五六七八九十百千0-9]+(?:の[一二三四五六七八九十0-9]+)?)\s*条"
+                            r"|제\s*(\d+(?:의\d+)?)\s*조")
 
 
 # C0 control chars a PDF/text layer can emit that break strict CSV parsing and pollute
@@ -203,6 +210,10 @@ def segment_units(text: str) -> list[dict]:
     arts = list(ARTICLE_RE.finditer(text))
     if len(arts) >= 3:
         return _spans_from(arts, text, "article", lambda m: f"Article-{m.group(2)}")
+    cjk_arts = list(CJK_ARTICLE_RE.finditer(text))
+    if len(cjk_arts) >= 3:
+        return _spans_from(cjk_arts, text, "article",
+                           lambda m: f"Article-{m.group(1) or m.group(2)}")
     recs = list(RECITAL_RE.finditer(text))
     if len(recs) >= 5:
         return _spans_from(recs, text, "recital", lambda m: f"Recital-{m.group(1)}")
@@ -224,13 +235,28 @@ def _quantification(sentence: str, profile) -> str:
     return "null"
 
 
+def _is_cjk(ch: str) -> bool:
+    """True for a kana / ideograph / hangul char — scripts written WITHOUT spaces, where every
+    char is a ``\\w`` char so a ``\\w`` word-boundary can never fire between two of them."""
+    o = ord(ch)
+    return (0x3040 <= o <= 0x30FF        # Hiragana + Katakana
+            or 0x3400 <= o <= 0x9FFF     # CJK Unified Ideographs (incl. Ext A)
+            or 0xAC00 <= o <= 0xD7A3     # Hangul syllables
+            or 0xF900 <= o <= 0xFAFF     # CJK Compatibility Ideographs
+            or 0x20000 <= o <= 0x2FA1F)  # CJK Unified Ideographs Ext B–F
+
+
 def _marker_regex(pattern: str):
     """A word-boundary matcher for a surface marker: the pattern must not sit INSIDE a larger
     word ("might" ≠ "mighty", "allows" ≠ "swallows", "fined" ≠ "defined"). Boundaries are added
-    only at word-character edges so multi-word / punctuated markers still match."""
+    only at word-character edges — and only for SPACED scripts. A CJK edge char (kana/ideograph/
+    hangul) is unspaced and always ``\\w``, so requiring a ``\\w``-boundary there would make the
+    marker never fire on real (unspaced) CJK statute prose; for a CJK edge the boundary is
+    dropped (substring match — the correct matcher for a space-less script). The negation-aware
+    resolution below still guards force in every script."""
     esc = re.escape(pattern)
-    left = r"(?<!\w)" if pattern[:1].isalnum() else ""
-    right = r"(?!\w)" if pattern[-1:].isalnum() else ""
+    left = r"(?<!\w)" if (pattern[:1].isalnum() and not _is_cjk(pattern[:1])) else ""
+    right = r"(?!\w)" if (pattern[-1:].isalnum() and not _is_cjk(pattern[-1:])) else ""
     return re.compile(left + esc + right, re.IGNORECASE)
 
 
