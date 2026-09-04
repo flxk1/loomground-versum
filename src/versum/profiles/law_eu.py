@@ -20,10 +20,14 @@ from ..profile import Profile, register
 # the general scholarly schemes. The core never names CELEX; it lives here, in the profile.
 # The optional ``_SUM``/``_INF`` qualifiers are part of the CELEX document id — a
 # judgment's official summary or information note is a DISTINCT document from the
-# judgment, and dropping the qualifier collapses the two into one identity. Language
+# judgment, and dropping the qualifier collapses the two into one identity. The optional
+# trailing ``-YYYYMMDD`` consolidation date is part of the id for the same reason: a
+# consolidated text (sector ``0``, e.g. ``02024R1689-20260727``) is a distinct document
+# from the authentic act and from every other consolidation date, so the date must stay
+# inside the captured id or two point-in-time versions collapse to one URN. Language
 # codes (``_DE``/``_EN``) are presentation, not identity, and stay outside the captured id.
 SOURCE_IDENTIFIERS = (
-    ("celex", re.compile(r"celex[\s:_-]*([0-9]{5}[a-z]{1,2}[0-9]{3,4}(?:_(?:sum|inf))?)",
+    ("celex", re.compile(r"celex[\s:_-]*([0-9]{5}[a-z]{1,2}[0-9]{3,4}(?:_(?:sum|inf))?(?:-\d{8})?)",
                          re.IGNORECASE)),
     ("doi", re.compile(r"\b(10\.\d{4,9}/[-._;()/:a-z0-9]+)\b", re.IGNORECASE)),
     ("arxiv", re.compile(r"\b(\d{4}\.\d{4,5})(?:v\d+)?\b")),
