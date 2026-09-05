@@ -49,10 +49,19 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="versum", description="Loomground Versum")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
+    # host profiles (e.g. a domain vertical's own Profile) self-register on import but live
+    # outside versum's built-in package; naming their module here imports+registers them before
+    # the profile id is resolved. Repeatable. Domain-neutral seam — core imports no host code.
+    def _add_extra_profile(p):
+        p.add_argument("--extra-profile-module", action="append", default=[], metavar="MODULE",
+                       help="import a host module that registers a Profile (e.g. profile.mrl); "
+                            "repeatable. The module must be importable (on PYTHONPATH).")
+
     pi = sub.add_parser("index"); pi.add_argument("folder")
     pi.add_argument("--profile", default="generic"); pi.add_argument("--out", default=None)
     pi.add_argument("--nd-system", action="append", default=[],
                     help="declarative nD system config (repeatable)")
+    _add_extra_profile(pi)
 
     pc = sub.add_parser(
         "capture",
@@ -60,6 +69,7 @@ def main(argv=None) -> int:
     )
     pc.add_argument("folder")
     pc.add_argument("--profile", default="generic")
+    _add_extra_profile(pc)
     pc.add_argument(
         "--consume-registry",
         metavar="CSV",
@@ -80,9 +90,11 @@ def main(argv=None) -> int:
     pcf.add_argument("source")
     pcf.add_argument("--target", required=True)
     pcf.add_argument("--profile", default="generic")
+    _add_extra_profile(pcf)
 
     pw = sub.add_parser("watch"); pw.add_argument("folder", nargs="?")
     pw.add_argument("--profile", default="generic")
+    _add_extra_profile(pw)
     pw.add_argument("--interval", type=float, default=5.0)
     pw.add_argument("--config", default=None)  # Live Index: loop sync_once over a config
 
@@ -155,6 +167,11 @@ def main(argv=None) -> int:
     pad.add_argument("--out", required=True)
 
     args = ap.parse_args(argv)
+
+    # register any host-defined profiles before an id is resolved (host-register seam)
+    import importlib
+    for _mod in getattr(args, "extra_profile_module", None) or []:
+        importlib.import_module(_mod)
 
     if args.cmd == "capture-file":
         try:
