@@ -1,4 +1,4 @@
-"""Duplicate-identity audit (scripts/operations/dedupe_audit.py).
+"""Duplicate-identity audit (tools/operations/dedupe_audit.py).
 
 One canonical URN, many files: the audit must find every such family, pick the
 base copy as keeper, respect curated (sidecar-paired) members, refuse stale
@@ -16,7 +16,7 @@ import pytest
 import versum.profiles  # noqa: F401 — register built-in profiles
 from versum import sync
 
-_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "operations" / "dedupe_audit.py"
+_SCRIPT = Path(__file__).resolve().parents[1] / "tools" / "operations" / "dedupe_audit.py"
 _spec = importlib.util.spec_from_file_location("dedupe_audit", _SCRIPT)
 da = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(da)
