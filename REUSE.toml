@@ -14,7 +14,7 @@ SPDX-License-Identifier = "Apache-2.0"
 [[annotations]]
 path = [
   ".github/**",
-  "docs/**", "examples/**", "scripts/**", "tests/**",
+  "docs/**", "examples/**", "tools/**", "tests/**",
   "src/versum/**", "*.json", "*.toml",
   "skills/**", ".claude-plugin/**",
 ]
