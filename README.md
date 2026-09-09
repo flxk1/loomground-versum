@@ -219,13 +219,13 @@ gold are yours.
 
 ```bash
 python -m pytest -q
-python scripts/check_hygiene.py
+python tools/check_hygiene.py
 python -m compileall -q src/versum
 ```
 
 GitHub CI runs the suite on the supported Python endpoints, performs high-signal Ruff and
 MyPy checks, builds wheel and source artifacts, installs the wheel into a clean environment,
-and exercises the installed CLI through `scripts/smoke_installed.py`.
+and exercises the installed CLI through `tools/smoke_installed.py`.
 
 ## Layout
 

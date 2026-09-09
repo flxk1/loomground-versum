@@ -1,4 +1,4 @@
-"""Bytes-arrive-for-an-existing-stub pairing (scripts/operations/pair_stub_bytes.py).
+"""Bytes-arrive-for-an-existing-stub pairing (tools/operations/pair_stub_bytes.py).
 
 A PDF that turns up for a source already present as a citation stub must be filed
 under the STUB's canonical_urn (identity_method "sidecar-pairing") — never minted a
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from versum import sync
 
-_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "operations" / "pair_stub_bytes.py"
+_SCRIPT = Path(__file__).resolve().parents[1] / "tools" / "operations" / "pair_stub_bytes.py"
 _spec = importlib.util.spec_from_file_location("pair_stub_bytes", _SCRIPT)
 psb = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(psb)
