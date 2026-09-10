@@ -1,6 +1,6 @@
 ---
 name: loomground-enrich
-description: Grow the Versum graph from research findings - extract KG-worthy nodes, validate against the graph, propose with confidence; writes route through loomground-knowledge-write with confirmation. Triggers - "add what we learned to the graph", "enrich the KG from this", "capture these findings", "grow the graph from this conversation".
+description: Grow the Versum graph from research findings - extract KG-worthy nodes, validate against the graph, propose with confidence; writes route through loomground-knowledge-write with confirmation. Use when research findings or a conversation have produced knowledge that should be added to the Versum graph. Triggers - "add what we learned to the graph", "enrich the KG from this", "capture these findings", "grow the graph from this conversation".
 ---
 
 # loomground-enrich

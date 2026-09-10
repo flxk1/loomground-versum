@@ -1,6 +1,6 @@
 ---
 name: loomground-kg-chat
-description: Conversational, read-only Q&A over the Loomground Versum knowledge graph, grounded on every read, local-model-first. Concept multi-hop answers from the curated canon when canon.json is present at the KG root; claim/source-level otherwise - measure, never assume. Triggers - "what does this source ground", "which sources support this", "how are X and Y connected", "answer this from the KG".
+description: Conversational, read-only Q&A over the Loomground Versum knowledge graph, grounded on every read, local-model-first. Concept multi-hop answers from the curated canon when canon.json is present at the KG root; claim/source-level otherwise - measure, never assume. Use when the user asks a question that should be answered from the knowledge graph without writing to it. Triggers - "what does this source ground", "which sources support this", "how are X and Y connected", "answer this from the KG".
 ---
 
 # loomground-kg-chat
