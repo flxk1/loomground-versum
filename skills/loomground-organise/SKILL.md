@@ -1,6 +1,7 @@
 ---
 name: loomground-organise
 description: Organise documents into a Loomground Versum by shared mental models, with a person confirming every placement. Use when the user wants to triage the review queue, file a new document, or re-shelve an existing one into the right library/domain/year — "organise the Versum", "sort my inbox", "where does this document belong", "clear the review queue", "suggest a domain for this". It ranks candidate domains and the nearest existing sources by concept-overlap (the document's mental-model neighbours), shows that evidence, and — only after a human confirms — hands the write to loomground-knowledge-write. It never auto-files and never invents a domain; low-overlap or novel items stay in the review queue.
+allowed-tools: versum_index versum_search
 ---
 
 # loomground-organise
@@ -69,7 +70,14 @@ should be calibrated against the score distribution, not trusted as-is.
 
 ## How it runs
 
-Two deterministic helpers do the mechanical work; the model does the judgement.
+Primary path: `versum_index` with `{"folder": "<review item folder>", "profile": "<profile>"}`
+gives an item its concept set (the capture/sync step below); `versum_search` with
+`{"folder": "<kg_root>", "query": "<the item's concepts>", "k": 10}` returns the
+nearest existing sources with spans — on a materialised KG each hit carries its
+`by-domain/` folder, which is the candidate-domain evidence. Neither files a
+placement.
+
+Shell fallback — two deterministic helpers do the mechanical work; the model does the judgement.
 
 - `python scripts/organise.py list --review <review_dir>` — show what is waiting, read from
   each item's `*.metadata.json` provenance sidecar (URN, year, provenance level).

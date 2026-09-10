@@ -1,6 +1,7 @@
 ---
 name: loomground-kg
 description: The cockpit over the Loomground Versum knowledge graph. Use when the user wants to see the state of the KG, ask what a source grounds or what grounds a claim, check whether this week's digest/signals are captured in the graph, decide what to run next across the Loomground skill platforms, or route grounded work. Triggers include "KG status", "what's in the knowledge graph", "is this week's digest grounded", "what should I run next", "which sources cover X", "cockpit", "route this to the right skill", "what does this source ground", and "coverage of this domain".
+allowed-tools: versum_search versum_claims
 ---
 
 # Loomground KG — cockpit
@@ -11,6 +12,11 @@ read tool; nothing is invented.
 
 ## Ground first, always
 Before answering anything, run the read tool and quote it — never state KG state from memory.
+
+Primary path: `versum_search` with `{"folder": "<kg_root>", "query": "<term>", "k": 10}`
+(which sources cover a term — hits with spans) and `versum_claims` with
+`{"folder": "<kg_root>", "limit": 100}` (the claim rows: `n_total` for status,
+filter by `source_urn` for one source's claims). Shell fallback:
 
 ```
 # one-time per machine: point at your KG config (all device paths live only there)
@@ -26,7 +32,7 @@ The code carries no machine paths; the single config file (see `config.example.j
   for concept→sources, use the curated canon tables — see Honest limits).
 - `libraries` — the configured libraries and their roots.
 
-Read path = `scripts/kg_query.py`. Writes must route through the installed package that provides
+Read path = `versum_search` / `versum_claims`, shell fallback `scripts/kg_query.py`. Writes must route through the installed package that provides
 the `knowledge.capture` capability — never write claims directly or fetch a PDF in-session. The
 capture provider registers provenance out-of-band; the live indexer then picks it up.
 

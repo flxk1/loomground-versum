@@ -1,6 +1,7 @@
 ---
 name: loomground-curate
 description: Run Versum's coordinate-identity curation to mint the concept / mental-model layer of the knowledge graph, for the whole KG or one domain folder. Use when the user wants to curate the concept layer, build the domain canon, check a domain's concept coverage or convergence, or upgrade KG chat multi-hop from claim/source level to concept level. The canon run IS the write - it materializes the concept tables in place (previously empty tables only; claims and registry untouched) - so confirm with the human BEFORE running. Deterministic and local - no model, no network. Triggers - "curate the concept layer", "run coordinate curation", "mint the concepts", "build the domain canon", "has this domain converged", "why are there no concepts in the KG".
+allowed-tools: versum_suggest versum_confirm versum_canon
 ---
 
 # loomground-curate — coordinate-identity curation
@@ -18,7 +19,15 @@ The run is the write. `versum canon` materializes, in place: `concepts.csv`,
 `by-domain/<domain>/` folder, plus `canon.json` and `convergence.json` at the KG root.
 It only ever (over)writes these concept tables — `claims.csv` and the registry are
 never touched — but get explicit confirmation of the target (whole KG or one domain)
-before running, not after:
+before running, not after.
+
+Primary path: call `versum_canon` with `{"folder": "<KG root or one by-domain folder>"}`
+— the run is the write. To review before minting, `versum_suggest` with
+`{"folder": "<folder>", "min_sources": 2}` lists the curation candidates and
+`versum_confirm` with `{"folder": "<folder>", "concept_ids": ["<id>", ...], "min_sources": 2}`
+confirms the chosen ones.
+
+Shell fallback:
 
 ```bash
 python3 -m versum canon --config CONFIG.json [--m-max 1]     # whole KG
