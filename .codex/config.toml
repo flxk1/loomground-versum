@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Flxk1
+# SPDX-License-Identifier: Apache-2.0
+
+[mcp_servers.loomground]
+command = "loomground-mcp"
+args = ["serve", "--transport", "stdio"]

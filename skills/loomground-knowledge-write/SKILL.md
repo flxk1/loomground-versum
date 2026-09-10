@@ -1,6 +1,7 @@
 ---
 name: loomground-knowledge-write
 description: The Versum-facing alias for the single write path into a Loomground knowledge graph. Use when an approved local PDF or prepared source record should be added. Delegates every executable write to loomground-editorial's live capture-to-kg writer; it has no second identity, deduplication, sidecar, or persistence implementation. It NEVER fetches binaries from within a session.
+allowed-tools: versum_capture
 ---
 
 # loomground-knowledge-write
@@ -12,7 +13,12 @@ report.
 
 ## How it runs — explicit delegation, not an LLM
 
-Run:
+Primary path: call `versum_capture` with
+`{"folder": "<target folder>", "source_path": "/abs/path/to/source.pdf", "profile": "<profile>"}`
+(`profile` optional) — the same gated capture door (admit + dedupe + index one
+local source into the folder), exposed over MCP; it never fetches.
+
+Shell fallback — run:
 
 ```bash
 python3 <this-skill>/scripts/delegate_capture.py \
@@ -62,8 +68,8 @@ writes the provenance + candidate-claim layers only; concept links are curation.
 5. **PDF placement — never fetched in-session.** Put an already-present local PDF path in
    the canonical spec. Otherwise record the URL/status honestly; acquisition remains
    out-of-band.
-6. **Delegate the write.** Invoke `delegate_capture.py`; do not invoke
-   `versum capture` as an alternative persistence door.
+6. **Delegate the write.** Call `versum_capture` (shell fallback:
+   `delegate_capture.py`); do not use any other persistence door.
 7. **Report.** Return the canonical capture report: URN, written artifacts, duplicate
    status, kind, and PDF status. Indexing/organizing remains the downstream KG step.
 

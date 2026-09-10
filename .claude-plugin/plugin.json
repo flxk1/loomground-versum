@@ -16,5 +16,11 @@
     "provenance",
     "query",
     "versum"
-  ]
+  ],
+  "mcpServers": {
+    "loomground": {
+      "command": "loomground-mcp",
+      "args": ["serve", "--transport", "stdio"]
+    }
+  }
 }

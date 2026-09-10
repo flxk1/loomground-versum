@@ -1,6 +1,7 @@
 ---
 name: loomground-kg-chat
 description: Conversational, read-only Q&A over the Loomground Versum knowledge graph, grounded on every read, local-model-first. Concept multi-hop answers from the curated canon when canon.json is present at the KG root; claim/source-level otherwise - measure, never assume. Use when the user asks a question that should be answered from the knowledge graph without writing to it. Triggers - "what does this source ground", "which sources support this", "how are X and Y connected", "answer this from the KG".
+allowed-tools: versum_search versum_claims
 ---
 
 # loomground-kg-chat
@@ -20,6 +21,15 @@ answers questions and walks the graph. Both read through the same tool; neither 
 
 Route status/coverage/"what to run next" to `loomground-kg` (the cockpit); route writes to the
 capture door; use this skill to answer questions.
+
+## Primary path
+
+`versum_search` with `{"folder": "<kg_root>", "query": "<the question's terms>", "k": 10}`
+answers "which sources support this" with spans; `versum_claims` with
+`{"folder": "<kg_root>", "limit": 100}` answers "what does this source ground"
+(filter the rows by `source_urn`). Shell fallback: the cockpit's read tool,
+`python3 <loomground-kg skill dir>/scripts/kg_query.py <verb>` (see
+`references/reference.md`). Both are read-only.
 
 ## More
 
