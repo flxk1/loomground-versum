@@ -1,13 +1,6 @@
 ---
 name: loomground-kg
-description: >-
-  The cockpit over the Loomground Versum knowledge graph. Use whenever the user wants to see the
-  state of the KG, ask what a source grounds or what grounds a claim, check whether this week's
-  digest/signals are captured in the graph, decide what to run next across the Loomground skill
-  platforms, or route grounded work. Triggers include "KG status", "what's in the knowledge
-  graph", "is this week's digest grounded", "what should I run next", "which sources cover X",
-  "cockpit", "route this to the right skill", "what does this source ground", and "coverage of
-  this domain".
+description: The cockpit over the Loomground Versum knowledge graph. Use when the user wants to see the state of the KG, ask what a source grounds or what grounds a claim, check whether this week's digest/signals are captured in the graph, decide what to run next across the Loomground skill platforms, or route grounded work. Triggers include "KG status", "what's in the knowledge graph", "is this week's digest grounded", "what should I run next", "which sources cover X", "cockpit", "route this to the right skill", "what does this source ground", and "coverage of this domain".
 ---
 
 # Loomground KG — cockpit
