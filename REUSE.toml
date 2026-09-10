@@ -4,7 +4,7 @@ SPDX-PackageSupplier = "Organization: Loomground Contributors"
 
 [[annotations]]
 path = [
-  "LICENSE", "*.md", ".gitignore", "NOTICE", "pyproject.toml",
+  "LICENSE", "*.md", "llms.txt", ".gitignore", "NOTICE", "pyproject.toml",
   "requirements-dev.txt", "requirements-release.txt",
 ]
 precedence = "aggregate"
