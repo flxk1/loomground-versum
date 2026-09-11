@@ -1,5 +1,47 @@
 # Changelog
 
+## [0.14.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.13.0...loomground-versum-v0.14.0) (2026-09-11)
+
+
+### Features
+
+* **cli:** --extra-profile-module to register host profiles ([b400560](https://github.com/flxk1/loomground-versum/commit/b400560cdbef341c9e9a92f9ca5e371991fbc88f))
+* **cli:** --extra-profile-module to register host profiles ([2754f24](https://github.com/flxk1/loomground-versum/commit/2754f24517c4940d4d9117b767d68ffcdcaafe54))
+* **examples:** meaningful-human-control as an nD coordinate system ([242c32d](https://github.com/flxk1/loomground-versum/commit/242c32dcd8abb86a1eec223a71d2d3090c9e31bd))
+* **law_eu:** add juris-first rank keys projected from topos ladder ([66778f8](https://github.com/flxk1/loomground-versum/commit/66778f8bca003508ab95b7b07fe17c8d9ecbd296))
+* **profiles:** read a mandate from the document that conferred it ([1372948](https://github.com/flxk1/loomground-versum/commit/1372948a5417be83ffe7eb60faec8dbcfb8dcea0))
+* **trajectory:** an action sequence as an ordinary process composition ([de8f6e5](https://github.com/flxk1/loomground-versum/commit/de8f6e5f8ea6a968352de8e75d8a6ab5f21fd97f))
+
+
+### Bug Fixes
+
+* **docs:** complete install steps; correct dev-pin comment ([#25](https://github.com/flxk1/loomground-versum/issues/25)) ([6aaff48](https://github.com/flxk1/loomground-versum/commit/6aaff4875e77ea8d6faa038637c49d320da12a29))
+* **extract,law-eu:** CJK segmentation + boundary + DE void-markers ([1adc5a0](https://github.com/flxk1/loomground-versum/commit/1adc5a066dc99dd73f2ea02e7a1f9ccec4b83c22))
+* **extract:** script-aware marker boundary so CJK markers fire ([b969a65](https://github.com/flxk1/loomground-versum/commit/b969a65597f4d3e74a3cba805db799e819e308f0))
+* **extract:** segment CJK statutes by 第N条 / 제N조 article headings ([77fe8ef](https://github.com/flxk1/loomground-versum/commit/77fe8efe50b8696de1ee3a5ce0f80ddfbd9e5c5b))
+* **extract:** stop 400-char hard cap from truncating/fabricating claim text ([0d80b08](https://github.com/flxk1/loomground-versum/commit/0d80b081440690f21092832a057b835cffde868f))
+* **extract:** stop bare positive-modal markers inverting negated claims ([c7b21b7](https://github.com/flxk1/loomground-versum/commit/c7b21b72b85bd8985e3327125186deabb0fd7ae6))
+* **law-eu:** add German void-markers unwirksam/nichtig to MARKERS_DE ([6944c48](https://github.com/flxk1/loomground-versum/commit/6944c48944aac7bf13ed42e56e4d2fe7a97bf144))
+* **law-eu:** keep CELEX consolidation date in minted identity ([5f2a9de](https://github.com/flxk1/loomground-versum/commit/5f2a9de720837b38a8514943cad6c4e001bb735d))
+* **law-eu:** keep CELEX consolidation date in minted identity ([bc019f6](https://github.com/flxk1/loomground-versum/commit/bc019f6bd9204ef36c6cb2234e2f0601bb2c8913))
+* **law-eu:** recognise German prohibition marker "unzulässig" ([6d3862a](https://github.com/flxk1/loomground-versum/commit/6d3862abaf9081daf5004341d37beae7b0f3645e))
+* **law-eu:** recognise German prohibition marker "unzulässig" ([179a1ff](https://github.com/flxk1/loomground-versum/commit/179a1ff76b0668f213b1d9a576f146b42e6d61f4))
+* **nd:** support interval values on the time axis, backward-compatible ([546a4a6](https://github.com/flxk1/loomground-versum/commit/546a4a6d8dc0645c45e1a666e39b1cdfa5b148ca))
+
+
+### Dependencies
+
+* accept loomground-deontic 0.2 (cap &lt;0.3, dev pin 0.2.0) ([ad4a48d](https://github.com/flxk1/loomground-versum/commit/ad4a48d2685f753267884c57fe565457595277d5))
+
+
+### Documentation
+
+* llms.txt generated from README ([b8d94ec](https://github.com/flxk1/loomground-versum/commit/b8d94ec4f899f165eb41ac55599c2845fca2afa6))
+* README Problem and executed Example ([04530ab](https://github.com/flxk1/loomground-versum/commit/04530ab006a1d9748b4c4ce1bba2c1275cb33004))
+* README to canon (349 words), description, Family ([6eb0a14](https://github.com/flxk1/loomground-versum/commit/6eb0a140c3ac65abb858a23cc9253da5759dd09f))
+* **roadmap:** knowledge plane and agentic oversight ([b971175](https://github.com/flxk1/loomground-versum/commit/b9711751f281d7632f9ebcb3c83d2faccb4f661e))
+* **roadmap:** knowledge plane and agentic oversight ([0ef6c9d](https://github.com/flxk1/loomground-versum/commit/0ef6c9dc0b5222147956f4ab735185aeb855a90c))
+
 ## [0.13.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.12.0...loomground-versum-v0.13.0) (2026-08-10)
 
 
