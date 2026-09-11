@@ -10,7 +10,7 @@ authors = [{ name = "Loomground Contributors" }]
 dependencies = [
   "pdfplumber>=0.10",
   "loomground-governance>=0.8,<0.12",
-  "loomground-deontic>=0.1,<0.2",
+  "loomground-deontic>=0.1,<0.3",
 ]
 
 [project.optional-dependencies]
