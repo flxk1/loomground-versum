@@ -135,4 +135,4 @@ any geometry and is left as-is rather than guessed at.
 1. [ ] Implement per-line adaptive inference in `versum/io/extract.py` (config-tunable), keep the NUL/control hygiene.
 2. [ ] Synthetic-PDF test battery: tight, loose-tracked, normal, heading, single-word, numeric, multi-size; + neutrality guard.
 3. [ ] Adversarial verification (no regression on clean text; no spurious splits; determinism).
-4. [x] `scripts/operations/reextract_full.py` config-driven resumable runner; deliver bundle + runbook; then re-run curation.
+4. [x] `tools/operations/reextract_full.py` config-driven resumable runner; deliver bundle + runbook; then re-run curation.
