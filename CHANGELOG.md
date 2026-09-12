@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.14.0...loomground-versum-v0.14.1) (2026-09-12)
+
+
+### Documentation
+
+* reextract runner lives in tools/, not scripts/ ([e4fb5b4](https://github.com/flxk1/loomground-versum/commit/e4fb5b4b7a2b3655406347b196b8283fe93b1e7f))
+
 ## [0.14.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.13.0...loomground-versum-v0.14.0) (2026-09-11)
 
 
