@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.1](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.14.0...loomground-versum-v0.14.1) (2026-09-19)
+
+
+### Bug Fixes
+
+* **extract:** stop 400-char hard cap from truncating/fabricating claim text ([b7d5329](https://github.com/flxk1/loomground-versum/commit/b7d5329b9ce2b8bc6534c254ea18215184051e6c))
+
+
+### Documentation
+
+* reextract runner lives in tools/, not scripts/ ([e12fd35](https://github.com/flxk1/loomground-versum/commit/e12fd35f251c1af758b83ed32e918797a07b6bfc))
+
 ## [0.14.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.13.0...loomground-versum-v0.14.0) (2026-09-11)
 
 
