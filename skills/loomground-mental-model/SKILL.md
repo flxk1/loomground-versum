@@ -2,6 +2,25 @@
 name: loomground-mental-model
 description: The Versum mental-model engine - scan content into a grounded ConceptGraph and project it to the format that answers the question. One hub over scan, compose, and project, wrapping the versum engine; writes route through loomground-knowledge-write. Use when the user wants concepts extracted from content into a concept graph, or that content projected into another format. Triggers - "build a mental model", "extract the concepts", "make a concept graph", "turn this into slides/a checklist/a diagram/SQL", "project this content as X".
 allowed-tools: versum_index versum_claims versum_search
+governance:
+  grade: L1
+  actions:
+    - { kind: scan_content, risk: medium }
+    - { kind: read_claims, risk: low }
+    - { kind: search_graph, risk: low }
+    - { kind: project_content, risk: low }
+  prohibited:
+    - invent_ungrounded_concept
+    - guess_citation
+    - write_without_confirmation
+  obligations:
+    - concepts_grounded_to_sources
+    - writes_route_through_knowledge_write
+    - interrogate_only_with_grounded_answers
+  redress:
+    - { kind: scan_content, by: workspace_owner, overturn: true }
+  budget: { usd: 1, iters: 20 }
+  on-boundary: report-not-repair
 ---
 
 # loomground-mental-model

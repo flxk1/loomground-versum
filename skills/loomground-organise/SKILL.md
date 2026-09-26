@@ -2,6 +2,31 @@
 name: loomground-organise
 description: Organise documents into a Loomground Versum by shared mental models, with a person confirming every placement. Use when the user wants to triage the review queue, file a new document, or re-shelve an existing one into the right library/domain/year — "organise the Versum", "sort my inbox", "where does this document belong", "clear the review queue", "suggest a domain for this". It ranks candidate domains and the nearest existing sources by concept-overlap (the document's mental-model neighbours), shows that evidence, and — only after a human confirms — hands the write to loomground-knowledge-write. It never auto-files and never invents a domain; low-overlap or novel items stay in the review queue.
 allowed-tools: versum_index versum_search
+governance:
+  grade: L1
+  actions:
+    - { kind: list_review_queue, risk: low }
+    - { kind: index_item, risk: low }
+    - { kind: search_neighbours, risk: low }
+    - { kind: suggest_placement, risk: medium }
+    - { kind: escalate_to_cloud, risk: medium }
+  prohibited:
+    - auto_file_without_confirmation
+    - invent_or_mint_domain
+    - hardcode_domain_vocabulary
+    - write_to_graph_directly
+    - trust_discourse_filler_concepts
+    - escalate_to_cloud_without_opt_in
+  obligations:
+    - placement_requires_human_confirmation
+    - domain_from_store_never_hardcoded
+    - novel_or_low_overlap_stays_in_review
+    - cloud_opt_in_respected
+    - write_via_knowledge_write_only
+  redress:
+    - { kind: suggest_placement, by: workspace_owner, overturn: true }
+  budget: { usd: 1, iters: 20 }
+  on-boundary: report-not-repair
 ---
 
 # loomground-organise

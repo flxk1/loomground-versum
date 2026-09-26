@@ -2,6 +2,29 @@
 name: loomground-knowledge-write
 description: The Versum-facing alias for the single write path into a Loomground knowledge graph. Use when an approved local PDF or prepared source record should be added. Delegates every executable write to loomground-editorial's live capture-to-kg writer; it has no second identity, deduplication, sidecar, or persistence implementation. It NEVER fetches binaries from within a session.
 allowed-tools: versum_capture
+governance:
+  grade: L1
+  actions:
+    - { kind: resolve_citation, risk: low }
+    - { kind: dedup_check, risk: low }
+    - { kind: capture_source, risk: high, grade: L3 }
+  prohibited:
+    - fetch_binary_in_session
+    - invent_or_guess_citation
+    - confirm_concepts
+    - rewrite_urn_by_hand
+    - use_alternate_write_path
+  obligations:
+    - citation_verified_before_write
+    - urn_computed_canonically
+    - dedup_checked_before_write
+    - single_write_path_only
+    - pdf_never_fetched_in_session
+    - provenance_single_history
+  redress:
+    - { kind: capture_source, by: workspace_owner, overturn: true }
+  budget: { usd: 1, iters: 20 }
+  on-boundary: report-not-repair
 ---
 
 # loomground-knowledge-write
