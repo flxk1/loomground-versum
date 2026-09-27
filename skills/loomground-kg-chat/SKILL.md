@@ -38,6 +38,8 @@ answers questions and walks the graph. Both read through the same tool; neither 
 Route status/coverage/"what to run next" to `loomground-kg` (the cockpit); route writes to the
 capture door; use this skill to answer questions.
 
+Never answer from model memory: every answer is grounded in the graph or says it cannot be.
+
 ## Primary path
 
 `versum_search` with `{"folder": "<kg_root>", "query": "<the question's terms>", "k": 10}`
