@@ -3,6 +3,10 @@ name: release-please
 on:
   push:
     branches: [main]
+  # Pull requests run these jobs only to report them as skipped, so the
+  # required release/publish checks resolve; nothing is released from a PR.
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: write
@@ -10,6 +14,7 @@ permissions:
 
 jobs:
   release:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     outputs:
       release-created: ${{ steps.release.outputs.release_created }}
