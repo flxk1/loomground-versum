@@ -2,6 +2,22 @@
 name: loomground-kg-chat
 description: Conversational, read-only Q&A over the Loomground Versum knowledge graph, grounded on every read, local-model-first. Concept multi-hop answers from the curated canon when canon.json is present at the KG root; claim/source-level otherwise - measure, never assume. Use when the user asks a question that should be answered from the knowledge graph without writing to it. Triggers - "what does this source ground", "which sources support this", "how are X and Y connected", "answer this from the KG".
 allowed-tools: versum_search versum_claims
+governance:
+  grade: L1
+  actions:
+    - { kind: search_graph, risk: low }
+    - { kind: read_claims, risk: low }
+  prohibited:
+    - write_to_graph
+    - answer_from_model_memory
+  obligations:
+    - ground_every_answer
+    - measure_concept_layer_never_assume
+    - route_non_qa_elsewhere
+  redress:
+    - { kind: search_graph, by: workspace_owner, overturn: true }
+  budget: { usd: 1, iters: 20 }
+  on-boundary: report-not-repair
 ---
 
 # loomground-kg-chat
@@ -21,6 +37,8 @@ answers questions and walks the graph. Both read through the same tool; neither 
 
 Route status/coverage/"what to run next" to `loomground-kg` (the cockpit); route writes to the
 capture door; use this skill to answer questions.
+
+Never answer from model memory: every answer is grounded in the graph or says it cannot be.
 
 ## Primary path
 

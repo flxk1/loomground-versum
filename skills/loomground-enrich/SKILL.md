@@ -2,6 +2,25 @@
 name: loomground-enrich
 description: Grow the Versum graph from research findings - extract KG-worthy nodes, validate against the graph, propose with confidence; writes route through loomground-knowledge-write with confirmation. Use when research findings or a conversation have produced knowledge that should be added to the Versum graph. Triggers - "add what we learned to the graph", "enrich the KG from this", "capture these findings", "grow the graph from this conversation".
 allowed-tools: versum_search versum_claims
+governance:
+  grade: L1
+  actions:
+    - { kind: search_graph, risk: low }
+    - { kind: read_claims, risk: low }
+    - { kind: propose_candidate, risk: medium }
+  prohibited:
+    - write_directly
+    - add_node_from_model_recall
+    - auto_merge_without_confirmation
+  obligations:
+    - validate_against_existing_graph
+    - propose_with_confidence_score
+    - human_confirms_before_write
+    - writes_route_through_knowledge_write
+  redress:
+    - { kind: propose_candidate, by: workspace_owner, overturn: true }
+  budget: { usd: 1, iters: 20 }
+  on-boundary: report-not-repair
 ---
 
 # loomground-enrich

@@ -2,6 +2,32 @@
 name: loomground-curate
 description: Run Versum's coordinate-identity curation to mint the concept / mental-model layer of the knowledge graph, for the whole KG or one domain folder. Use when the user wants to curate the concept layer, build the domain canon, check a domain's concept coverage or convergence, or upgrade KG chat multi-hop from claim/source level to concept level. The canon run IS the write - it materializes the concept tables in place (previously empty tables only; claims and registry untouched) - so confirm with the human BEFORE running. Deterministic and local - no model, no network. Triggers - "curate the concept layer", "run coordinate curation", "mint the concepts", "build the domain canon", "has this domain converged", "why are there no concepts in the KG".
 allowed-tools: versum_suggest versum_confirm versum_canon
+governance:
+  grade: L1
+  actions:
+    - { kind: suggest_candidates, risk: low }
+    - { kind: confirm_candidates, risk: medium }
+    - { kind: run_canon, risk: high, grade: L3 }
+  reserved:
+    - { kind: run_canon, by: curator }
+  prohibited:
+    - invent_concept
+    - model_or_network_call
+    - hand_author_concept
+    - scan_or_project_content
+    - file_documents
+    - write_claims_or_sources
+    - verify_via_watched_folder_state
+  obligations:
+    - confirm_scope_before_run
+    - concept_id_from_claim_content
+    - deterministic_local_only
+    - verify_on_materialized_tables
+    - read_canon_back_to_human
+  redress:
+    - { kind: run_canon, by: workspace_owner, overturn: true }
+  budget: { usd: 1, iters: 20 }
+  on-boundary: hold-and-confirm
 ---
 
 # loomground-curate — coordinate-identity curation

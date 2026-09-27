@@ -2,6 +2,26 @@
 name: loomground-kg
 description: The cockpit over the Loomground Versum knowledge graph. Use when the user wants to see the state of the KG, ask what a source grounds or what grounds a claim, check whether this week's digest/signals are captured in the graph, decide what to run next across the Loomground skill platforms, or route grounded work. Triggers include "KG status", "what's in the knowledge graph", "is this week's digest grounded", "what should I run next", "which sources cover X", "cockpit", "route this to the right skill", "what does this source ground", and "coverage of this domain".
 allowed-tools: versum_search versum_claims
+governance:
+  grade: L1
+  actions:
+    - { kind: search_graph, risk: low }
+    - { kind: read_claims, risk: low }
+    - { kind: route_work, risk: low }
+    - { kind: report_status, risk: low }
+  prohibited:
+    - answer_from_model_memory
+    - write_claims_directly
+    - fetch_pdf_in_session
+  obligations:
+    - ground_before_answering
+    - measure_concept_layer_never_assume
+    - report_grounded_vs_pending
+    - state_honest_limits
+  redress:
+    - { kind: route_work, by: workspace_owner, overturn: true }
+  budget: { usd: 1, iters: 20 }
+  on-boundary: report-not-repair
 ---
 
 # Loomground KG — cockpit
