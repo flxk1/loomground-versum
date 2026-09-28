@@ -13,8 +13,8 @@ authors = [{ name = "Loomground Contributors" }]
 # only these URLs can satisfy.
 dependencies = [
     "pdfplumber>=0.10",
-    "loomground-governance @ git+https://github.com/flxk1/loomground-governance@3eed4cab3cba2a288fcac3671171cd4fa7e5bc18",
-    "loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@4c01e0390767917333db99b6355842eb34745563",
+    "loomground-governance @ git+https://github.com/flxk1/loomground-governance@ff2afcde03131859d21fc7195697e799aa65a9be",
+    "loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@0f57e8d2c02f288169d76e3ec93714b0d3f00ea2",
 ]
 
 [project.optional-dependencies]
