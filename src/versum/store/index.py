@@ -248,8 +248,9 @@ def index_folder(folder, profile_id: str = "generic", out=None,
                     })
         fps[urn] = _json_safe(fp.fingerprint(urn, items, profile, nd_context=nd_context))
         # A4: every sentence becomes an entry; spans index the unmodified source text
-        # (the decoded file for text sources, the extracted text layer for PDFs).
-        source_text = (p.read_bytes().decode("utf-8", errors="replace")
+        # (the decoded file for text sources, the extracted text layer for PDFs), except
+        # NUL: no CSV writer before Python 3.11 can store it, and claim text drops it too.
+        source_text = (p.read_bytes().decode("utf-8", errors="replace").replace("\x00", "")
                        if p.suffix.lower() in TEXT_EXT else res.get("text", ""))
         source_meta = None
         if consume is not None:
@@ -283,8 +284,8 @@ def index_folder(folder, profile_id: str = "generic", out=None,
                    sort_keys=True) + "\n", encoding="utf-8")
     g.save_claims(out / "claims.csv", all_claims, profile.id)
     # ``text`` is the exact source slice ``source_text[span_start:span_end]`` — never
-    # cleaned — so the span invariant holds for every row; the csv writer quotes CR/LF and
-    # a csv reader returns the other control characters verbatim.
+    # cleaned beyond dropping NUL — so the span invariant holds for every row; the csv
+    # writer quotes CR/LF and a csv reader returns the other control characters verbatim.
     _write_csv(out / "entries.csv", entries, pl.ENTRY_COLUMNS)
     _write_csv(out / "entry_links.csv", entry_links, pl.LINK_COLUMNS)
     (out / "entry_claims.jsonl").write_text(claims_jsonl, encoding="utf-8")
