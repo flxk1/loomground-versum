@@ -1,7 +1,9 @@
 """Reference semantic adapter from Loomground into Graph-Versum."""
 from __future__ import annotations
 
+import copy
 import hashlib
+import importlib
 import json
 from typing import Any
 
@@ -10,24 +12,34 @@ from versum.adapters import (
     ProjectedRelation, SemanticMapping, SystemIdentity,
 )
 from versum.nd import Binding, CoordinateAssignment, NDSystem
-from versum.loomground import _kit, language_info
+from versum.loomground import LoomgroundSourceError, _kit, language_info
 
 
 ADAPTER_ID = "versum.adapter.loomground"
 ADAPTER_VERSION = "1"
 
-LOOMGROUND_MAPPING = SemanticMapping.from_dict({
-    "id": "loomground-federation-5d",
-    "version": "1",
-    "relations": {
-        "authority": {"dimension": "intentional", "semantic_role": "authorizes"},
-        "pipe": {"dimension": "causal", "semantic_role": "activates"},
-        "egress": {"dimension": "causal", "semantic_role": "releases_to"},
-        "on_behalf_of": {"dimension": "relational", "semantic_role": "delegates_for"},
-        "reservation": {"dimension": "intentional", "semantic_role": "reserves_for"},
-        "redress": {"dimension": "intentional", "semantic_role": "remedy_by"},
-    },
-})
+def _governance_plane(kit) -> Any:
+    """The kit's plane module: the one source of the 5D binding and the nD system."""
+    try:
+        return importlib.import_module(f"{kit.__name__}.plane")
+    except ImportError as exc:
+        raise LoomgroundSourceError(
+            "the Loomground adoption kit publishes no governance plane "
+            "(loomground_governance.plane); install a kit that ships it") from exc
+
+
+def loomground_mapping(language_source=None) -> SemanticMapping:
+    """The governance relation -> 5D mapping, read from the kit's package data at runtime."""
+    return SemanticMapping.from_dict(_governance_plane(_kit(language_source))
+                                     .dimension_binding())
+
+
+def __getattr__(name: str) -> Any:
+    # ``LOOMGROUND_MAPPING`` stays importable but is resolved from the kit on access, so
+    # importing the versum never requires the kit and no copy of the map lives here.
+    if name == "LOOMGROUND_MAPPING":
+        return loomground_mapping()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _digest(value: Any) -> str:
@@ -81,8 +93,17 @@ class LoomgroundAdapter:
             runtime_observations=True,
         )
 
+    def mapping(self) -> SemanticMapping:
+        """The relation -> 5D mapping from the kit's governance plane data file."""
+        return loomground_mapping(self.language_source)
+
+    def plane(self) -> dict:
+        """The kit's governance plane descriptor (shared plane descriptor contract v1)."""
+        return _governance_plane(self._kit()).plane()
+
     def artifacts(self) -> ArtifactBundle:
         kit = self._kit()
+        mapping = self.mapping()
         vocabulary_names = (
             "cords", "declarations", "grades", "guard-domain", "node-classes",
             "risk", "verdicts",
@@ -93,68 +114,35 @@ class LoomgroundAdapter:
             schemas={name: kit.schema(name) for name in schema_names},
             vocabularies={name: kit.vocabulary(name) for name in vocabulary_names},
             metadata={"language_card": kit.language_card(),
-                      "mapping_id": LOOMGROUND_MAPPING.mapping_id,
-                      "mapping_version": LOOMGROUND_MAPPING.version},
+                      "mapping_id": mapping.mapping_id,
+                      "mapping_version": mapping.version},
         )
 
     def nd_systems(self) -> tuple[NDSystem, ...]:
-        artifacts = self.artifacts()
-        default_risk = list(artifacts.vocabularies["risk"]["levels"])
-        default_grades = list(artifacts.vocabularies["grades"]["levels"])
-        risk = list(self.policy.get("risk_levels", default_risk))
-        grades = list(self.policy.get("grade_levels", default_grades))
+        """The governance nD system: the plane's own document, with policy ladders applied.
+
+        Axes, vocabularies and slot rules come from the kit's plane at runtime; the policy
+        may remap the risk and grade ladders, and the version pins language, grammar,
+        mapping and the active ladders so a stale assignment is detectable.
+        """
+        raw = copy.deepcopy(self.plane()["nd_system"])
+        axes = raw["axes"]
+        risk = list(self.policy.get("risk_levels", axes["risk"]["vocabulary"]))
+        grades = list(self.policy.get("grade_levels", axes["grade"]["vocabulary"]))
+        axes["risk"]["vocabulary"], axes["grade"]["vocabulary"] = risk, grades
+        identity = self.identity()
         version_seed = {
-            "language": self.identity().version,
-            "grammar": self.identity().grammar_sha256,
-            "mapping": LOOMGROUND_MAPPING.version,
+            "language": identity.version,
+            "grammar": identity.grammar_sha256,
+            "mapping": self.mapping().version,
             "risk": risk,
             "grades": grades,
         }
-        raw = {
-            "id": "loomground-governance",
-            "namespace": "loomground",
-            "version": f"{self.identity().version}+{_digest(version_seed)[:12]}",
-            "federation_5d_version": "1",
-            "axes": {
-                "node_class": {"value_type": "controlled_identifier", "cardinality": "one",
-                               "vocabulary": ["actor", "human", "gate", "master"]},
-                "cord_type": {"value_type": "controlled_identifier", "cardinality": "one",
-                              "vocabulary": ["authority", "pipe", "egress"]},
-                "risk": {"value_type": "controlled_identifier", "cardinality": "one",
-                         "vocabulary": risk, "primitives": ["equal", "precedes"]},
-                "grade": {"value_type": "controlled_identifier", "cardinality": "one",
-                          "vocabulary": grades, "primitives": ["equal", "precedes"]},
-                "party": {"value_type": "entity_reference", "cardinality": "one",
-                          "vocabulary_mode": "open", "primitives": ["equal"]},
-                "token_kind": {"value_type": "concept_reference", "vocabulary_mode": "open",
-                               "primitives": ["equal", "contains"]},
-                "tags": {"value_type": "concept_reference", "cardinality": "many",
-                         "vocabulary_mode": "open", "primitives": ["equal", "contains"]},
-                "verdict": {"value_type": "controlled_identifier", "cardinality": "one",
-                            "vocabulary": artifacts.vocabularies["verdicts"]["alphabet"]},
-                "reservation_role": {"value_type": "entity_reference", "cardinality": "many",
-                                     "vocabulary_mode": "open"},
-                "duration": {"value_type": "interval", "cardinality": "one",
-                             "vocabulary_mode": "open", "primitives": ["equal", "precedes"]},
-                "on_elapse": {"value_type": "controlled_identifier", "cardinality": "one",
-                              "vocabulary": ["halt", "proceed"]},
-                "redress_role": {"value_type": "entity_reference", "cardinality": "many",
-                                 "vocabulary_mode": "open"},
-            },
-            "bindings": [
-                {"form_slot": "predicate.agent", "allowed_axes": ["party", "node_class"]},
-                {"form_slot": "predicate.patient", "allowed_axes": ["party", "token_kind"]},
-                {"form_slot": "modality.bearer", "allowed_axes": ["party", "reservation_role",
-                                                                    "redress_role"]},
-                {"form_slot": "condition.antecedent", "allowed_axes": ["risk", "grade",
-                                                                         "token_kind", "tags"]},
-            ],
-            "ontology_relations": [
-                *_ordered_relations("risk", risk), *_ordered_relations("grade", grades),
-            ],
-            "validation": {"unknown_values": "reject", "missing_coordinates": "preserve_unknown",
-                           "provenance_required": True},
-        }
+        raw["version"] = f"{identity.version}+{_digest(version_seed)[:12]}"
+        raw["ontology_relations"] = [
+            row for row in raw.get("ontology_relations", [])
+            if row.get("axis") not in {"risk", "grade"}
+        ] + [*_ordered_relations("risk", risk), *_ordered_relations("grade", grades)]
         return (NDSystem.from_dict(raw).validate(),)
 
     def parse(self, source: str) -> Any:
@@ -195,6 +183,7 @@ class LoomgroundAdapter:
         source_ref = f"urn:loomground:grammar:{identity.grammar_sha256}"
         result = GraphProjection(identity=identity, nd_systems=[system])
         known: set[str] = set()
+        semantic = self.mapping()
 
         def ensure_node(node_id: str, node_type: str = "external-reference",
                         label: str = "", attributes: dict | None = None) -> str:
@@ -217,10 +206,15 @@ class LoomgroundAdapter:
                 if raw.get(field) not in (None, ""):
                     result.assignments.append(self._assignment(
                         system, node_id, axis, raw[field], source_ref))
+
+        # Delegation edges after every declared node exists, so a delegator declared
+        # later in the list keeps its own class and attributes (not a placeholder).
+        for raw in value["nodes"]:
+            node_id = str(raw["id"])
             delegator = raw.get("on_behalf_of")
             if delegator:
                 ensure_node(str(delegator))
-                mapping = LOOMGROUND_MAPPING.relation("on_behalf_of")
+                mapping = semantic.relation("on_behalf_of")
                 result.relations.append(ProjectedRelation(
                     _id("rel", node_id, "on_behalf_of", delegator), node_id, str(delegator),
                     mapping.local_predicate, mapping.dimension, mapping.semantic_role,
@@ -231,7 +225,7 @@ class LoomgroundAdapter:
             source = ensure_node(str(raw.get("from", "")))
             target = ensure_node(str(raw.get("to", "")))
             predicate = str(raw.get("type", ""))
-            mapping = LOOMGROUND_MAPPING.relation(predicate)
+            mapping = semantic.relation(predicate)
             relation_id = _id("rel", source, predicate, target)
             result.relations.append(ProjectedRelation(
                 relation_id, source, target, predicate, mapping.dimension,
@@ -244,7 +238,7 @@ class LoomgroundAdapter:
             constraint_id = _id("reservation", raw)
             role_id = ensure_node(f"role:{raw['by']}", "role", str(raw["by"]))
             ensure_node(constraint_id, "reservation", str(raw.get("kind", "reservation")), raw)
-            mapping = LOOMGROUND_MAPPING.relation("reservation")
+            mapping = semantic.relation("reservation")
             result.relations.append(ProjectedRelation(
                 _id("rel", constraint_id, "reservation", role_id), constraint_id, role_id,
                 mapping.local_predicate, mapping.dimension, mapping.semantic_role,
@@ -260,7 +254,7 @@ class LoomgroundAdapter:
             constraint_id = _id("redress", raw)
             role_id = ensure_node(f"role:{raw['by']}", "role", str(raw["by"]))
             ensure_node(constraint_id, "redress", str(raw.get("kind", "redress")), raw)
-            mapping = LOOMGROUND_MAPPING.relation("redress")
+            mapping = semantic.relation("redress")
             result.relations.append(ProjectedRelation(
                 _id("rel", constraint_id, "redress", role_id), constraint_id, role_id,
                 mapping.local_predicate, mapping.dimension, mapping.semantic_role,
@@ -287,6 +281,84 @@ class LoomgroundAdapter:
                                raw["form_slot"]),
             ))
         return result.validate()
+
+    def read_observation(self, projection: GraphProjection) -> dict:
+        """Read a projected observation back (rule 4: round-trip, field for field).
+
+        Declared nodes, cords, reservations and redress keep the observation's own
+        records as attributes; this returns them in projection order. ``redress`` is
+        present only when the projection carries any.
+        """
+        system = projection.nd_systems[0]
+        declared = set(system.axes["node_class"].vocabulary or ())
+        cord_types = set(system.axes["cord_type"].vocabulary or ())
+        observation = {
+            "nodes": [dict(n.attributes) for n in projection.nodes if n.node_type in declared],
+            "cords": [dict(r.attributes) for r in projection.relations
+                      if r.local_predicate in cord_types],
+            "reservations": [dict(n.attributes) for n in projection.nodes
+                             if n.node_type == "reservation"],
+        }
+        redress = [dict(n.attributes) for n in projection.nodes if n.node_type == "redress"]
+        if redress:
+            observation["redress"] = redress
+        return observation
+
+    def entry_bindings(self, entry_claims, projection: GraphProjection) -> list[dict]:
+        """Claim bindings from versum entries to a projected governance observation.
+
+        ``entry_claims`` are the per-entry plane claims of an index run (rows of
+        ``entry_claims.jsonl`` / ``SourceEntries.claims``: ``item_id``, ``plane``,
+        ``language_version``, ``claim``). For each governance claim, every form slot
+        ``slot -> axis`` binds the entry (``claim_id = item_id``) to the observation
+        coordinate with that axis and the claim's value; a claim naming a ``gate``
+        binds node coordinates of that gate only. Fails closed: a claim from another
+        language version, a named gate the observation does not declare, or a slot with
+        no matching coordinate raises ``ValueError``.
+        """
+        descriptor = self.plane()
+        plane_id, version = descriptor["plane"], descriptor["language_version"]
+        system = projection.nd_systems[0]
+        declared = set(system.axes["node_class"].vocabulary or ())
+        node_types = {n.node_id: n.node_type for n in projection.nodes}
+        out: list[dict] = []
+        seen: set[tuple] = set()
+        for row in entry_claims:
+            if row.get("plane") != plane_id:
+                continue
+            item_id, claim = str(row["item_id"]), row["claim"]
+            if row.get("language_version") not in (None, version):
+                raise ValueError(
+                    f"entry {item_id}: claim from governance {row['language_version']!r}, "
+                    f"the kit is {version!r} (stale; re-index)")
+            gate = claim.get("gate")
+            if gate is not None and node_types.get(gate) not in declared:
+                raise ValueError(f"entry {item_id}: gate {gate!r} is not declared in the "
+                                 f"observation")
+            coordinates = claim.get("coordinates") or {}
+            for slot, axis in sorted((claim.get("slots") or {}).items()):
+                value = coordinates.get(axis)
+                matches = [a for a in projection.assignments
+                           if a.axis_id == axis and a.value == value
+                           and (gate is None or node_types.get(a.subject_id) not in declared
+                                or a.subject_id == gate)]
+                if not matches:
+                    raise ValueError(f"entry {item_id}: slot {slot!r} axis {axis!r} value "
+                                     f"{value!r} has no coordinate in the observation")
+                for assignment in matches:
+                    key = (item_id, assignment.subject_id, axis, slot)
+                    if key not in seen:
+                        seen.add(key)
+                        out.append({"claim_id": item_id, "subject_id": assignment.subject_id,
+                                    "axis_id": axis, "form_slot": slot,
+                                    "semantic_role": str(claim.get("relation", ""))})
+        return out
+
+    def project_entries(self, observation: dict, entry_claims) -> GraphProjection:
+        """Project an observation with the entry bindings of an index run, validated."""
+        claims = list(entry_claims)
+        bindings = self.entry_bindings(claims, self.import_observation(observation))
+        return self.import_observation(observation, claim_bindings=bindings)
 
     def export(self, projection: GraphProjection) -> ExportResult:
         """Export the graph-shaped Loomground subset; preserve warnings for omitted constraints."""

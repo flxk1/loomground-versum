@@ -2,18 +2,23 @@
 # Copyright 2026 flxk1
 """Versum's narrow boundary to the deontic language pack.
 
-Builds the deontic **nD system** (the governance-facet axes deontic content
-occupies) from the pack's published vocabulary, so a deontic subgraph can be
-stored and queried in Versum's one graph. Consumes the ``deontic`` kit the same
-way :mod:`versum.loomground` consumes the governance kit; it reads the pack, adds
-no vocabulary of its own.
+The deontic **nD system** (the axes deontic content occupies) and the deontic
+relation → 5D **binding** are the plane's own published documents: the versum
+reads them from the plane descriptor the pack registers under the
+``loomground.planes`` entry point (``deontic``), validated by
+:class:`versum.planes.DescriptorPlane`. Consumes the ``deontic`` kit the same way
+:mod:`versum.loomground` consumes the governance kit; it adds no vocabulary, no
+axis and no dimension of its own.
 """
 from __future__ import annotations
 
 import importlib
-from typing import Any
+import importlib.metadata
 
 from .nd import NDSystem
+from .planes import ENTRY_POINT_GROUP, DescriptorPlane, PlaneDescriptorError
+
+DEONTIC_PLANE_ID = "deontic"
 
 
 class DeonticSourceError(RuntimeError):
@@ -33,37 +38,37 @@ def _kit():
     return kit
 
 
+def deontic_plane() -> DescriptorPlane:
+    """The deontic plane, loaded from its ``loomground.planes`` entry point and
+    validated against the plane descriptor contract (fail closed)."""
+    _kit()
+    eps = [ep for ep in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP)
+           if ep.name == DEONTIC_PLANE_ID]
+    if len(eps) != 1:
+        raise DeonticSourceError(
+            f"the deontic pack publishes {len(eps)} {ENTRY_POINT_GROUP!r} entry points "
+            f"named {DEONTIC_PLANE_ID!r}; install a loomground-deontic that publishes "
+            "its plane descriptor")
+    try:
+        factory = eps[0].load()
+        return DescriptorPlane.from_descriptor(factory(), entry_name=DEONTIC_PLANE_ID)
+    except PlaneDescriptorError as exc:
+        raise DeonticSourceError(f"the deontic plane descriptor is invalid: {exc}") from exc
+    except Exception as exc:
+        raise DeonticSourceError(
+            f"the deontic plane failed to load: {type(exc).__name__}: {exc}") from exc
+
+
+def deontic_binding() -> dict[str, str]:
+    """The deontic relation → 5D binding, as the plane publishes it
+    (operator → dimension; one of the five dimensions only)."""
+    return dict(deontic_plane().binding())
+
+
 def deontic_nd_system() -> NDSystem:
     """The deontic nD system: the operator/incident/party axes a deontic norm
-    occupies in Versum's nD (governance) facet, built from the pack's vocabulary."""
-    kit = _kit()
-    axes: dict[str, Any] = {
-        "operator": {"value_type": "controlled_identifier", "vocabulary_mode": "closed",
-                     "vocabulary": list(kit.VALID_OPERATORS), "cardinality": "one",
-                     "primitives": ["equal"]},
-        "incident": {"value_type": "controlled_identifier", "vocabulary_mode": "closed",
-                     "vocabulary": list(kit.INCIDENTS), "cardinality": "one",
-                     "primitives": ["equal"]},
-        "bearer": {"value_type": "entity_reference", "vocabulary_mode": "open",
-                   "cardinality": "one", "primitives": ["equal"]},
-        "action": {"value_type": "concept_reference", "vocabulary_mode": "open",
-                   "cardinality": "one", "primitives": ["equal"]},
-        "counterparty": {"value_type": "entity_reference", "vocabulary_mode": "open",
-                         "primitives": ["equal"]},
-        "condition": {"value_type": "string", "vocabulary_mode": "open",
-                      "primitives": ["equal"]},
-        "exception": {"value_type": "string", "vocabulary_mode": "open",
-                      "primitives": ["equal"]},
-        "negated": {"value_type": "boolean", "vocabulary_mode": "open",
-                    "cardinality": "one", "primitives": ["equal"]},
-    }
-    return NDSystem.from_dict({
-        "id": "loomground-deontic",
-        "namespace": "deontic",
-        "version": kit.language_version(),
-        "federation_5d_version": "1",
-        "axes": axes,
-    }).validate()
+    occupies, exactly as the plane publishes it (``nd-system.json``)."""
+    return deontic_plane().nd_system()
 
 
 def register_deontic(registry):

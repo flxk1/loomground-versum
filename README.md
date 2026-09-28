@@ -19,6 +19,8 @@ pip install .                         # installs the `versum` command
 versum index   <folder> --profile generic           # span-anchor, project 5D + nD
 versum capture <folder> --profile generic           # idempotent admission + index
 versum search  --config <live-index.json> --q "…"   # hybrid retrieval
+versum coords  <store> <entry-id>                   # one entry's 5D+nD coordinates
+versum cell    <store> --where sys.axis=value        # entries at an nD coordinate
 ```
 
 ## Example
@@ -41,9 +43,10 @@ out: span_start,span_end,marker,text
 | Model-assisted reading | `versum.deepen.Deepener` (default `NullDeepener`), identity resolver, concept judge: injected adapters over bounded candidates; index, capture and curation run with zero model calls |
 | Curation | `suggest` · `confirm --min-sources N` · `canon`; confirmed decisions persist across re-index |
 | Adapters | `adapt --adapter loomground --observation …`; `versum.loomground` builds `reasoning.interop` requests |
-| Claim model | one source + exact character span per claim; predicates project onto Federation-5D; nD systems (`validate-nd`) |
+| Claim model | one source + exact character span per claim; predicates project onto 5D; nD systems (`validate-nd`). A normative (operator) claim's `dimension` column is empty (an *ought* carries no 5D dimension, under any name); its action type is never written to `claims.csv` at all — it lives only as a not-asserted entry in the entry model (`entries.csv`/`entry_claims.jsonl`), linked back by an `embeds` link and referenced by the deontic `action` nD coordinate. A norm with no extractable action span abstains (`ACTION_IMPLICIT`) instead of a placeholder entry. `save_claims` raises `ClaimProvenanceError` for any row lacking an asserted provenance chain (verification + source + span) — see [docs/architecture/planes.md](docs/architecture/planes.md) |
+| Coordinate queries | `coords <store> <entry-id>` · `cell <store> --where sys.axis=value`; fail closed on an unknown entry/system/axis — see [docs/coordinates.md](docs/coordinates.md) |
 
-23 subcommands: `versum --help`. Contracts: [specification](docs/reference/specification.md) · [evidence ledger](docs/reference/evidence.md) · [sink contract](docs/reference/dimensioned-subgraph-ingestion.md) · [CLI guide](docs/guides/cli.md).
+25 subcommands: `versum --help`. Contracts: [specification](docs/reference/specification.md) · [evidence ledger](docs/reference/evidence.md) · [sink contract](docs/reference/dimensioned-subgraph-ingestion.md) · [CLI guide](docs/guides/cli.md) · [coordinate queries](docs/coordinates.md) · [nD on the index](docs/nd-on-index.md) (5D is what IS; O/P/F are OUGHT and carry no 5D dimension under any name).
 
 ## Family
 
@@ -59,7 +62,11 @@ Rationale: [docs/architecture/rationale.md](docs/architecture/rationale.md).
 ## Status
 
 - version 0.13.0 · specification 1-draft · alpha (formats and CLI subject to change)
-- 542 tests passed, 15 skipped (`python -m pytest -q`)
+- 715 tests passed, 14 skipped, 1 failing (`python -m pytest -q`) — the one failure
+  (`tests/test_consumer_compat.py::test_normative_claim_has_empty_dimension_and_an_embedded_action_entry`)
+  still asserts the reverted claims.csv companion-row design (Phase 0 ontology seam);
+  pending an update owned by the tests leg
+
 - python >=3.10 · 7 skills (`skills/`)
 
 ## License

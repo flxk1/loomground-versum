@@ -1,0 +1,6 @@
+# The three further planes the five-plane acceptance tests discover through
+# the environment. Not runtime dependencies of versum; installed by the test
+# jobs only. Pinned by commit so pip never needs an index.
+loomground-factual @ git+https://github.com/flxk1/loomground-factual@4f3043dcd64f1cde4e30f790a76afe80058ab4dc
+loomground-epistemic @ git+https://github.com/flxk1/loomground-epistemic@f4f293dd7d8a17e28d4ad710565dee234cf9234a
+loomground-topos @ git+https://github.com/flxk1/loomground-topos@176ca83b926163e06516aac3ebb5a07cc10c12e7

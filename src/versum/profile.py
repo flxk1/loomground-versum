@@ -74,15 +74,31 @@ class Profile:
         return frozenset(set(self.predicates) - set(self.predicate_dimensions))
 
     def federation_projections(self) -> list[dict]:
-        """Versioned, inspectable local-predicate projections for manifests and audits."""
+        """Versioned, inspectable local-predicate projections for manifests and audits.
+
+        A predicate the profile actually maps (present in ``predicate_dimensions``) is
+        reported with its declared cross-profile 5D dimension (the ``federation_dimension``
+        field) and ``verification: "profile-declared"``. A predicate the profile leaves
+        unmapped — every normative O/P/F predicate, per Round 5 (see
+        ``profiles/law_eu.py``): an operator is an OUGHT and carries no 5D dimension, so
+        none is declared for it — is reported as **not declared**:
+        ``federation_dimension: None``, ``verification: "not_declared"``. This must NOT
+        surface :meth:`dimension_for`'s relational-floor fallback as if it were a
+        declaration; that fallback exists for callers (e.g. the extraction pipeline) that
+        still need a concrete placeholder value, not for an audit whose job is to say what
+        the profile actually declared.
+        """
+        unmapped = self.unmapped_predicates()
         return [{
             "profile_id": self.id,
             "profile_version": self.catalogue_version,
             "local_predicate": predicate,
-            "federation_dimension": self.dimension_for(predicate),
+            "federation_dimension": (
+                None if predicate in unmapped else self.dimension_for(predicate)
+            ),
             "mapping_relation": "narrower_than",
             "mapping_version": self.catalogue_version,
-            "verification": "profile-declared",
+            "verification": "not_declared" if predicate in unmapped else "profile-declared",
         } for predicate in sorted(self.predicates)]
 
     def is_valid(self, axis: str, value: str) -> bool:

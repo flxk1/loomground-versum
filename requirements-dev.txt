@@ -3,7 +3,7 @@
 # index-clean. Install this before `pip install .` so the ranges are already
 # satisfied and pip never needs an index for the sibling packages.
 # Immutable release commits, pinned by SHA so pip never needs an index for the
-# sibling packages: governance 0.11.0, and deontic 0.2.0 (tag loomground-deontic-v0.2.0) at the commit below.
-loomground-governance @ git+https://github.com/flxk1/loomground-governance@2a1e8a0b4fe9de6c4d273eb50e401342d6b275fc
-loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@4dec997a583faebe915a392747c031c70c11cf3a
+# sibling packages: governance and deontic at their merged main commits.
+loomground-governance @ git+https://github.com/flxk1/loomground-governance@3eed4cab3cba2a288fcac3671171cd4fa7e5bc18
+loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@4c01e0390767917333db99b6355842eb34745563
 pytest==9.1.1

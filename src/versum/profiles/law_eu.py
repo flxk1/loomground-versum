@@ -128,9 +128,50 @@ QUANT_CUES = (
     ("existential", ("at least one", "mindestens ein", "at least")),
 )
 
+# Round 5: NO normative predicate ("grants", "imposes", "permits", "prohibits" — the four
+# predicates that express a deontic OPERATOR, O/P/F, or a Hohfeldian right/duty over a
+# bearer:action pair) gets an entry in this table, under any name. An operator is an
+# OUGHT, not a fact on the 5D manifold the plane's 5D describes (decision D1); the deontic
+# plane's own ``binding()`` is always ``{}`` (``docs/architecture/planes.md``), so there is
+# no operator -> dimension binding to read, here or anywhere else — and Round 4's own
+# workaround (assigning those predicates the relational floor AS A STATIC LITERAL IN THIS
+# TABLE) is corrected here too: a literal table entry, even one that points at the
+# relational floor, is still a predicate -> dimension MAPPING for a normative predicate,
+# which is exactly what Round 5 removes. A marker-gated normative claim carries no
+# dimension from its operator, full stop.
+#
+# What such a claim carries instead is not asserted here, in this table, at all: a
+# normative predicate is simply left OUT of this table, so ``Profile.unmapped_predicates()``
+# reports it as visibly unmapped (see ``tests/test_dimensions.py``) and
+# ``Profile.federation_projections()`` (the audit) says exactly that —
+# ``federation_dimension: None``, ``verification: "not_declared"`` — rather than this
+# profile asserting a mapping (even a floor one) that does not exist.
+#
+# ``versum.io.extract.candidate_items`` makes the *emitted* claims.csv row agree with that
+# audit verdict (Round 6): a normative-operator claim's own ``dimension`` column is empty,
+# never ``Profile.dimension_for``'s relational-floor fallback. That fallback is still the
+# concrete placeholder a framework caller needs (``dimension_for`` itself is unchanged —
+# see ``tests/test_profile_audit.py``) — but Round 7 (Phase 0 ontology seam,
+# ``docs/architecture/planes.md``) closes the gap Round 6 opened: the floor value is
+# NEVER asserted onto a second claims.csv row either. A norm's action type lives ONLY as
+# a not-asserted entry in the entry model (``entries.csv`` / ``entry_claims.jsonl``),
+# produced by the plane pipeline (:mod:`versum.planes`) once a bearer is known — read
+# through the factual plane, given its own factual dimension (relational, for a bare
+# predication — see ``loomground_factual``'s binding), and linked from the norm's own
+# entry by the structural "embeds" relation (``versum.planes.EMBED_LINK_RELATION``) —
+# never by a second claims.csv row of any verification. ``versum.store.graph.save_claims``
+# enforces this as a write-boundary invariant (``ClaimProvenanceError``): a row without an
+# asserted provenance chain (a recognised ``verification`` plus source/span) can never
+# reach ``claims.csv``. A norm with no extractable action span abstains instead of
+# fabricating a placeholder entry (reason code ``ACTION_IMPLICIT``,
+# ``versum.planes.ACTION_IMPLICIT``, recorded append-only in the store's abstention log).
+# See ``docs/architecture/planes.md`` ("Round 7") for the full account.
+#
+# The remaining predicates below are NOT normative/deontic: "holds" states a fact,
+# "conditions"/"defines"/"delegates" are structural, "repeals"/"supersedes" are temporal —
+# none of them carries an operator, so their mapping is untouched by Round 5.
 PREDICATE_DIMENSIONS = {
-    "grants": "intentional", "imposes": "intentional", "prohibits": "causal",
-    "permits": "causal", "holds": "relational", "conditions": "structural",
+    "holds": "relational", "conditions": "structural",
     "defines": "structural", "repeals": "temporal", "supersedes": "temporal",
     "delegates": "structural",
 }

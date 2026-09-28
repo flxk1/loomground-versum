@@ -17,11 +17,16 @@ def digest(text: str) -> str:
 def _norm_node(node_id, *, statement, operator, bearer, action,
                incident="", condition="", exception="", deadline="", sanction=""):
     """A node in the persisted envelope shape: the deontic fields live under ``properties``
-    (this is exactly how the ingest writer lowers a logical `kind="norm"` node)."""
+    (this is exactly how the ingest writer lowers a logical `kind="norm"` node).
+
+    ``dimensions`` names ``condition`` for the ``causal`` axis: a norm's triggering
+    condition is what carries a causal reading, never its ``operator`` — O/P/F is OUGHT,
+    not a fact on the 5D manifold, so no operator carries a dimension under any name
+    (see ``docs/architecture/planes.md``)."""
     return {
         "node_id": node_id,
         "node_type": "norm",
-        "dimensions": {"causal": "operator"},
+        "dimensions": {"causal": "condition"},
         "properties": {
             "statement": statement, "operator": operator, "bearer": bearer,
             "action": action, "incident": incident, "condition": condition,

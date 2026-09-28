@@ -9,6 +9,15 @@ on the same URN.
 
 This module reads the sidecars and matches a source file to its KG URN. It writes nothing
 and fetches nothing.
+
+Each sidecar's parsed JSON also carries plane-read source metadata beyond the legacy
+key set below — for example the topos plane's ``rank``/``level``/``organ``/``competence``/
+``scope``/``reception`` fields (PORT-PLAN.md, "Per-plane mapping", topos row: "source
+metadata -> rank, level, organ"). :func:`load_sidecars` keeps the legacy keys unchanged
+for :mod:`versum.sync` and :mod:`versum.store.index`, and additionally returns the
+complete parsed sidecar under ``"raw"`` so callers that build a plane producer's
+``context["source"]`` (see :func:`versum.store.index.index_folder`) can pass the full
+metadata through, not just the whitelisted subset.
 """
 from __future__ import annotations
 
@@ -22,7 +31,14 @@ _IDTOK = re.compile(r"[0-9]{5}[a-z]{1,2}[0-9]{3,4}", re.IGNORECASE)
 
 
 def load_sidecars(folder) -> list[dict]:
-    """Read every KG capture sidecar (*.metadata.json) under folder that has a canonical_urn."""
+    """Read every KG capture sidecar (*.metadata.json) under folder that has a canonical_urn.
+
+    Each returned dict keeps the legacy whitelisted keys (unchanged, for
+    :mod:`versum.sync` and the identity/nd_context reads in
+    :mod:`versum.store.index`) and additionally carries the complete parsed sidecar
+    under ``"raw"`` — every key the sidecar file has, including plane-read source
+    metadata (e.g. topos axes) that the legacy whitelist below does not name.
+    """
     out = []
     for p in Path(folder).rglob("*.metadata.json"):
         try:
@@ -38,6 +54,7 @@ def load_sidecars(folder) -> list[dict]:
                 "topic": d.get("topic"), "subtopic": d.get("subtopic"),
                 "jurisdiction": d.get("jurisdiction"), "year": d.get("year"),
                 "sidecar": p.name, "stub": p.name[:-len(".metadata.json")],
+                "raw": d,
             })
     return out
 
