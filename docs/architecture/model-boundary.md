@@ -1,4 +1,4 @@
-# Where Claude (an LLM) is needed — and where it isn't
+# Where an LLM is needed — and where it isn't
 
 Loomground Versum runs as a **deterministic Python pipeline**. The whole default path —
 adding documents and building the graph — needs **no model call at all**. An LLM is an
