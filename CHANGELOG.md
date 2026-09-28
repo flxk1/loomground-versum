@@ -55,6 +55,22 @@
   `versum.store.graph.load_claims` and `versum.nd.load_assignments` signatures, and
   `nd/assignments.csv`'s columns, are unchanged.
 
+## [0.14.1](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.14.0...loomground-versum-v0.14.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* **extract:** stop 400-char hard cap from truncating/fabricating claim text ([b7d5329](https://github.com/flxk1/loomground-versum/commit/b7d5329b9ce2b8bc6534c254ea18215184051e6c))
+* **kg-chat:** state the answer_from_model_memory guardrail explicitly ([ec9917f](https://github.com/flxk1/loomground-versum/commit/ec9917f964469411bee0f9d6417746cacab8b5a8))
+
+
+### Documentation
+
+* correct stale claims; add How this is made ([884cb28](https://github.com/flxk1/loomground-versum/commit/884cb28371460a576ca0dfe2793ed2b19c7ca325))
+* fix remaining stale statements found in review ([636c8ab](https://github.com/flxk1/loomground-versum/commit/636c8abdd02b0f843857d380eafed2ead6ff3216))
+* fix stale version/test claims, add How this is made ([c3c7060](https://github.com/flxk1/loomground-versum/commit/c3c7060edbfb7e1b3b87e92f2291b8d7d35cc59e))
+* reextract runner lives in tools/, not scripts/ ([e12fd35](https://github.com/flxk1/loomground-versum/commit/e12fd35f251c1af758b83ed32e918797a07b6bfc))
+
 ## [0.14.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.13.0...loomground-versum-v0.14.0) (2026-09-11)
 
 
