@@ -52,7 +52,7 @@ out: span_start,span_end,marker,text
 
 Span-grounded knowledge and evidence plane; the single persistent knowledge layer; distinguishes storage, retrieval, model-assisted reading.
 
-- consumes: [loomground-ingest](https://github.com/flxk1/loomground-ingest) envelopes · [loomground-governance](https://github.com/flxk1/loomground-governance) `>=0.8,<0.12` · [loomground-deontic](https://github.com/flxk1/loomground-deontic) `>=0.1,<0.3`
+- consumes: [loomground-ingest](https://github.com/flxk1/loomground-ingest) envelopes · [loomground-governance](https://github.com/flxk1/loomground-governance) · [loomground-deontic](https://github.com/flxk1/loomground-deontic), pinned by commit in `pyproject.toml`
 - consumed by: [loomground-solver](https://github.com/flxk1/loomground-solver) (corpus adapter, `reasoning.interop`) · agents (music-rights, digital-law)
 - pipeline: `source → loomground-ingest → loomground-versum → loomground-solver → applied or diagnostic planes`
 - boundary: claims and conflicts are recorded here; priority resolution and governance sit in solver and host planes

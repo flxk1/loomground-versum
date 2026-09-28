@@ -5,17 +5,19 @@
 
 ## Automated verification
 
-The full local suite passes:
+With `requirements-dev.txt` and `requirements-planes.txt` installed, as CI does, the full
+local suite passes:
 
 ```text
 756 passed, 13 skipped
 ```
 
-The skipped tests require external corpus fixtures. The Loomground grammar tests consume the
+The skipped tests need external corpus fixtures, the sibling language or solver
+repositories, the optional loomground-editorial integration, or `reportlab`. The Loomground
+grammar tests consume the
 pinned `loomground-governance` release; no network is used by the core test suite. Repository hygiene,
-bytecode compilation, and CI's high-signal Ruff selection also pass locally. The distribution
-build succeeds locally with build isolation disabled; the clean isolated build and installed-
-wheel smoke remain CI release gates because they require dependency resolution.
+bytecode compilation, and CI's high-signal Ruff selection also pass locally, as do the isolated
+distribution build and the installed-wheel smoke.
 
 New coherence-contract coverage verifies:
 
@@ -62,13 +64,6 @@ A 2026-07-18 corpus audit found:
 
 These findings motivate the separate Federation form profile, context footprint, concept
 footprint, and retrieval index in the normative specification.
-
-## Provenance integration evidence
-
-`provenance-proof.md`, referenced here as demonstrating canonical-URN reuse through index,
-suggestion, confirmation, and both-way traversal for one real source, is not present in this
-repository at HEAD; this claim could not be verified and is flagged for the maintainer rather
-than restated as fact.
 
 ## Current limitations
 
