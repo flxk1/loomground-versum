@@ -1,6 +1,6 @@
 # nD assignments on the index
 
-`versum index <folder> --profile <profile>` writes `nD` (nine-dimension, plane-native)
+`versum index <folder> --profile <profile>` writes `nD` (n-dimension, plane-native)
 coordinate assignments — not just the 5D position on `entries.csv` — for every plane
 installed and discovered through the `loomground.planes` entry-point group. This
 document is the ground truth for what lands in `<store>/nd/assignments.csv`, which

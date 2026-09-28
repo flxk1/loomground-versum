@@ -109,5 +109,5 @@ for verified coverage and explicit limitations. Run the suite with `python -m py
 
 ## Authorship
 
-This work is authored by **Loomground Contributors** and was assisted by Claude and Codex. Claude
-and Codex are acknowledged as tools, not authors or co-authors.
+This work is authored by **Loomground Contributors**. The code and documentation are written
+with Loomground agents. The maintainer reads and corrects all of it.

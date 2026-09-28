@@ -52,7 +52,7 @@ out: span_start,span_end,marker,text
 
 Span-grounded knowledge and evidence plane; the single persistent knowledge layer; distinguishes storage, retrieval, model-assisted reading.
 
-- consumes: [loomground-ingest](https://github.com/flxk1/loomground-ingest) envelopes · [loomground-governance](https://github.com/flxk1/loomground-governance) `>=0.8,<0.12` · [loomground-deontic](https://github.com/flxk1/loomground-deontic) `>=0.1,<0.2`
+- consumes: [loomground-ingest](https://github.com/flxk1/loomground-ingest) envelopes · [loomground-governance](https://github.com/flxk1/loomground-governance) `>=0.8,<0.12` · [loomground-deontic](https://github.com/flxk1/loomground-deontic) `>=0.1,<0.3`
 - consumed by: [loomground-solver](https://github.com/flxk1/loomground-solver) (corpus adapter, `reasoning.interop`) · agents (music-rights, digital-law)
 - pipeline: `source → loomground-ingest → loomground-versum → loomground-solver → applied or diagnostic planes`
 - boundary: claims and conflicts are recorded here; priority resolution and governance sit in solver and host planes
@@ -61,13 +61,15 @@ Rationale: [docs/architecture/rationale.md](docs/architecture/rationale.md).
 
 ## Status
 
-- version 0.13.0 · specification 1-draft · alpha (formats and CLI subject to change)
-- 715 tests passed, 14 skipped, 1 failing (`python -m pytest -q`) — the one failure
-  (`tests/test_consumer_compat.py::test_normative_claim_has_empty_dimension_and_an_embedded_action_entry`)
-  still asserts the reverted claims.csv companion-row design (Phase 0 ontology seam);
-  pending an update owned by the tests leg
+- version 0.14.0 · specification 1-draft · alpha (formats and CLI subject to change)
+- 756 tests passed, 13 skipped, 0 failing (`python -m pytest -q`, with
+  `requirements-planes.txt` installed for the five-plane acceptance suite)
 
 - python >=3.10 · 7 skills (`skills/`)
+
+## How this is made
+
+The code and documentation are written with Loomground agents. The maintainer reads and corrects all of it.
 
 ## License
 

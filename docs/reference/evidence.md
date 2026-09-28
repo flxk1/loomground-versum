@@ -1,14 +1,14 @@
 # Versum evidence ledger
 
 **Status:** Current evidence
-**Last verified:** 2026-07-24
+**Last verified:** 2026-09-28
 
 ## Automated verification
 
 The full local suite passes:
 
 ```text
-339 passed, 10 skipped
+756 passed, 13 skipped
 ```
 
 The skipped tests require external corpus fixtures. The Loomground grammar tests consume the
@@ -65,9 +65,10 @@ footprint, and retrieval index in the normative specification.
 
 ## Provenance integration evidence
 
-[`provenance-proof.md`](provenance-proof.md) demonstrates canonical-URN reuse through index, suggestion, confirmation, and
-both-way traversal for one real source. Its stated limitations remain: it is not a whole-
-registry proof, and the citation-only majority needs separate coverage.
+`provenance-proof.md`, referenced here as demonstrating canonical-URN reuse through index,
+suggestion, confirmation, and both-way traversal for one real source, is not present in this
+repository at HEAD; this claim could not be verified and is flagged for the maintainer rather
+than restated as fact.
 
 ## Current limitations
 
