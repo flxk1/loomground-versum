@@ -318,6 +318,7 @@ def _negated_immediately_after(text: str, pos: int) -> bool:
 def candidate_items(unit: dict, source_urn: str, profile) -> list[dict]:
     items, seen = [], set()
     text, base = unit["text"], unit["start"]
+    unmapped_predicates = profile.unmapped_predicates()
     for pattern, predicate, modality in profile.markers:
         for m in _marker_regex(pattern).finditer(text):
             # Negation-aware overlapping-marker resolution: a marker match immediately
@@ -343,6 +344,22 @@ def candidate_items(unit: dict, source_urn: str, profile) -> list[dict]:
             span = [base + s_start, base + s_end]
             iid = "item-" + hashlib.sha1(
                 f"{source_urn}{span}{predicate}".encode()).hexdigest()[:10]
+            # A normative (operator) predicate — one the profile leaves out of
+            # ``predicate_dimensions`` on purpose, per Round 5 — names no bearer/action
+            # content of its own at this bare-marker layer, so the claim itself gets NO
+            # cross-profile 5D dimension (empty, not a fabricated floor value): this is what
+            # keeps claims.csv agreeing with ``Profile.federation_projections()``'s "not
+            # declared" audit verdict for the same predicate. What the operator's content
+            # *would* read as on the 5D manifold is NEVER asserted here, as a claim of any
+            # shape (Phase 0 ontology seam, see ``docs/architecture/planes.md``): a norm's
+            # action type lives only as a not-asserted entry in the entry model
+            # (``entries.csv`` / ``entry_claims.jsonl``), produced by the plane pipeline
+            # (:mod:`versum.planes`) and linked from its sentence/claim entry by the
+            # ordinary structural "embeds" link — never as a second row in this module's
+            # output. ``versum.store.graph.save_claims`` enforces this as a write-boundary
+            # invariant (``ClaimProvenanceError``): a row without an asserted provenance
+            # chain can never reach ``claims.csv``.
+            is_normative_operator = predicate in unmapped_predicates
             items.append({
                 "item_id": iid,
                 "source_urn": source_urn,
@@ -355,9 +372,12 @@ def candidate_items(unit: dict, source_urn: str, profile) -> list[dict]:
                 "polarity": polarity,
                 "type": "is" if polarity == "D" else "ought",
                 "predicate": predicate,
-                # Federation-5D: universal edge-reasoning dimension. The local predicate
-                # remains the finer profile meaning and is never replaced by this projection.
-                "dimension": profile.dimension_for(predicate),
+                # 5D: universal edge-reasoning dimension. Empty for a
+                # normative operator claim (see above) — its action type is never
+                # asserted onto this claim's own dimension column, or onto any other
+                # claims.csv row. The local predicate remains the finer profile meaning
+                # and is never replaced by this projection.
+                "dimension": "" if is_normative_operator else profile.dimension_for(predicate),
                 "modality": modality,
                 "quantification": _quantification(sentence, profile),
                 # left for curation — never fabricated

@@ -25,11 +25,16 @@ def digest(text: str) -> str:
 
 
 def _norm_node(node_id, *, statement, bearer, action):
-    """A persisted-envelope node (deontic fields live under ``properties``)."""
+    """A persisted-envelope node (deontic fields live under ``properties``).
+
+    ``dimensions`` names ``condition`` for the ``causal`` axis: a norm's triggering
+    condition carries a causal reading, never its ``operator`` — O/P/F is OUGHT, not a
+    fact on the 5D manifold, so no operator carries a dimension under any name (see
+    ``docs/architecture/planes.md``)."""
     return {
         "node_id": node_id,
         "node_type": "norm",
-        "dimensions": {"causal": "operator"},
+        "dimensions": {"causal": "condition"},
         "properties": {
             "statement": statement, "operator": "obligation", "bearer": bearer,
             "action": action, "incident": "duty", "condition": "", "exception": "",

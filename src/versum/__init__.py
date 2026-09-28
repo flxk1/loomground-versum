@@ -8,6 +8,14 @@ from .capture import (
     append_records,
     fact_node_ids,
 )
+from .coordinates import (
+    UnknownAxisError,
+    UnknownEntryError,
+    UnknownSystemError,
+    VersumCoordinateError,
+    entries_in_cell,
+    entry_coordinates,
+)
 from .ingestion import (
     DimensionedSubgraph,
     DimensionedSubgraphSink,
@@ -27,11 +35,17 @@ __all__ = [
     "IdempotencyConflictError",
     "RuntimeCaptureError",
     "SubgraphValidationError",
+    "UnknownAxisError",
+    "UnknownEntryError",
+    "UnknownSystemError",
     "UpsertReceipt",
+    "VersumCoordinateError",
     "append_fact",
     "append_inference",
     "append_record",
     "append_records",
+    "entries_in_cell",
+    "entry_coordinates",
     "fact_node_ids",
     "get_record",
     "iter_records",

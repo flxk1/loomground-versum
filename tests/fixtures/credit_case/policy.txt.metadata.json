@@ -1,0 +1,10 @@
+{
+  "canonical_urn": "urn:loomground:acceptance:credit-decision-policy",
+  "title": "Credit policy (bank credit-decision policy)",
+  "pdf_status": "not-applicable",
+  "verification": "attested",
+  "authority_tier": "internal-policy",
+  "topic": "credit decisions",
+  "jurisdiction": ["EU", "DE"],
+  "year": "2026"
+}

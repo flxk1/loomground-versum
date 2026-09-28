@@ -91,8 +91,14 @@ class Claim:
     confidence: str = ""
     verification: str = "candidate"
     profile: str = ""
-    # Universal Federation-5D projection of the profile-local predicate.
-    dimension: str = "relational"
+    # Universal 5D projection of the profile-local predicate. Empty for a
+    # normative (operator) claim — see ``versum.io.extract.candidate_items`` — whose
+    # action type is never asserted here, on this or any other claims.csv row: it lives
+    # only as a not-asserted entry in the entry model (``entries.csv`` /
+    # ``entry_claims.jsonl``, :mod:`versum.planes`), linked from its sentence/claim
+    # entry by the structural "embeds" relation and referenced by the owning plane's
+    # own action nD coordinate — never by a second claims.csv row.
+    dimension: str = ""
 
     def row(self) -> dict:
         return asdict(self)
@@ -142,9 +148,60 @@ def load_edges(path) -> list[dict]:
         return list(csv.DictReader(fh))
 
 
+class ClaimProvenanceError(ValueError):
+    """A row offered to :func:`save_claims` has no asserted provenance chain.
+
+    ``claims.csv`` is the candidate-claim layer a curator confirms — every row on it
+    must be traceable to an asserted verification plus the source/span it was read off.
+    This is the Phase 0 write-boundary invariant (``docs/architecture/planes.md``): a
+    norm's action type/content is NEVER written to ``claims.csv``, under any
+    verification, dimension or column name — it lives only as a not-asserted entry in
+    the entry model (``entries.csv`` / ``entry_claims.jsonl``, :mod:`versum.planes`),
+    linked by the structural "embeds" relation. A row stamped ``verification`` outside
+    the asserted vocabulary (e.g. the reverted ``"structural"`` companion-row marker), or
+    missing its ``source_urn`` / span, raises here instead of ever reaching disk.
+    """
+
+
+#: The claims.csv verification vocabulary that DOES carry an asserted provenance chain —
+#: a candidate a curator can confirm, a confirmed curation decision, or an attested
+#: registry/sidecar fact. Anything else (e.g. ``"structural"``, ``"not_declared"``, or a
+#: missing value on a non-empty row) is not an assertion this store may persist here.
+ASSERTED_CLAIM_VERIFICATIONS = frozenset({"candidate", "confirmed", "attested"})
+
+
+def _check_claim_provenance(row: dict) -> None:
+    verification = row.get("verification")
+    if verification not in (None, "") and verification not in ASSERTED_CLAIM_VERIFICATIONS:
+        raise ClaimProvenanceError(
+            f"claim {row.get('item_id')!r} has verification {verification!r}, not an "
+            f"asserted provenance chain ({sorted(ASSERTED_CLAIM_VERIFICATIONS)!r}); a "
+            "norm's action type/content may never be written to claims.csv — see "
+            "versum.planes' entry model (entries.csv / entry_claims.jsonl, the "
+            "structural 'embeds' relation) instead")
+    if not row.get("source_urn"):
+        raise ClaimProvenanceError(
+            f"claim {row.get('item_id')!r} has no source_urn — every claims.csv row "
+            "must carry an asserted source")
+    if row.get("span_start") is None or row.get("span_end") is None:
+        raise ClaimProvenanceError(
+            f"claim {row.get('item_id')!r} has no span — every claims.csv row must "
+            "carry an asserted span into its source")
+
+
 def save_claims(path, claims, profile_id: str) -> None:
-    """Persist claims; each is flattened (span -> span_start/span_end) + profile."""
+    """Persist claims; each is flattened (span -> span_start/span_end) + profile.
+
+    Write-boundary invariant (Phase 0): every row must carry an asserted provenance
+    chain — a recognised ``verification`` plus a ``source_urn`` and a span — or this
+    raises :class:`ClaimProvenanceError` before anything is written. This is what keeps
+    a norm's action type/content out of ``claims.csv`` for good: the reverted
+    companion-row design tagged such a row ``verification="structural"``, which is
+    exactly the shape this check refuses.
+    """
     rows = [flatten_claim(_as_dict(c), profile_id) for c in claims]
+    for row in rows:
+        _check_claim_provenance(row)
     columns = list(rows[0].keys()) if rows else (
         [f.name for f in Claim.__dataclass_fields__.values()])
     _write_csv(path, rows, columns)

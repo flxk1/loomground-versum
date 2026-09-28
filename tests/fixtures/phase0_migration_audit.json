@@ -1,0 +1,52 @@
+{
+  "_doc": "Hand-audited migration record for the Phase 0 ontology-seam revert (commit 9f186fa, 'fix(versum): revert claims.csv companion-row design'). Lists every claims.csv row commit e539c15 ('fix(versum): agree claims.csv with the audit; join source-scoped nD axes onto entries') miswrote for tests/fixtures/credit_case/policy.txt when indexed with the law-eu profile, and the rationale for treating each as miswritten rather than legitimate. Derived by: `git archive e539c15` into a SCRATCHPAD export (never a worktree), indexing tests/fixtures/credit_case there with `versum index --profile law-eu`, and comparing that claims.csv against the source sentences and against the current (post-revert) HEAD's claims.csv for the same fixture/profile.",
+  "audited_commit": "e539c15",
+  "fixture": "tests/fixtures/credit_case/policy.txt",
+  "profile": "law-eu",
+  "old_n_claims": 6,
+  "new_n_claims": 3,
+  "method": "git archive e539c15 | tar -x into the scratchpad phase0 dir; `versum index <export>/tests/fixtures/credit_case-derived src --profile law-eu --out out` there via PYTHONPATH=<export>/src; read out/claims.csv; for every row absent from the current HEAD's claims.csv for the same fixture/profile, hand-audit its predicate/type/verification against the source sentence it claims to cover.",
+  "miswritten_rows": [
+    {
+      "item_id": "action-132c3e5a91",
+      "source_sentence": "The controller must not make a solely automated decision on a credit application.",
+      "row_shape": {"type": "action", "predicate": "prohibits", "dimension": "relational",
+                    "verification": "structural", "embedded_in": "item-01b5bd30d6"},
+      "rationale": "This row restates the norm's regulated action ('make a solely automated decision on a credit application') as a SECOND claims.csv row, under verification='structural' -- a value outside the asserted provenance vocabulary (candidate/confirmed/attested) claims.csv requires. The action is normative content (part of what the F operator forbids), never itself a directly-observed candidate claim off the source text with its own asserted provenance chain. Per the Phase 0 write boundary (docs/architecture/planes.md, versum.store.graph.ClaimProvenanceError), a norm's action type/content must never be written to claims.csv under any verification or column shape; it belongs only in the entry model (entries.csv/entry_claims.jsonl) as an unasserted action-type entry linked from the norm's own entry by the structural 'embeds' relation. Miswritten: yes."
+    },
+    {
+      "item_id": "action-d8d163af7b",
+      "source_sentence": "A reviewer shall examine every rejection before it is sent.",
+      "row_shape": {"type": "action", "predicate": "imposes", "dimension": "relational",
+                    "verification": "structural", "embedded_in": "item-97b545ba47"},
+      "rationale": "Same defect as action-132c3e5a91: a second claims.csv row ('examine every rejection') asserting the obligation's regulated action, stamped verification='structural' (not an asserted provenance chain), linked back only by a claims.csv-local 'embedded_in' column that no longer exists post-revert. Miswritten: yes -- the action lives only in the entry model now."
+    },
+    {
+      "item_id": "action-587282b60a",
+      "source_sentence": "The controller may use the score to prepare a decision.",
+      "row_shape": {"type": "action", "predicate": "permits", "dimension": "relational",
+                    "verification": "structural", "embedded_in": "item-1928fc87cf"},
+      "rationale": "Same defect again: the permission's regulated action ('use the score to prepare a decision') asserted as its own claims.csv row with a non-asserted verification. Miswritten: yes."
+    }
+  ],
+  "rows_confirmed_not_miswritten": [
+    {
+      "item_id": "item-01b5bd30d6",
+      "source_sentence": "The controller must not make a solely automated decision on a credit application.",
+      "predicate": "prohibits",
+      "rationale": "The normative (operator) claim's own row: verification='candidate' (asserted vocabulary), source_urn + span present, dimension empty (matches Profile.federation_projections()'s 'not_declared' verdict for an unmapped predicate). Legitimate; unchanged by the revert."
+    },
+    {
+      "item_id": "item-97b545ba47",
+      "source_sentence": "A reviewer shall examine every rejection before it is sent.",
+      "predicate": "imposes",
+      "rationale": "Same shape as item-01b5bd30d6; legitimate."
+    },
+    {
+      "item_id": "item-1928fc87cf",
+      "source_sentence": "The controller may use the score to prepare a decision.",
+      "predicate": "permits",
+      "rationale": "Same shape as item-01b5bd30d6; legitimate."
+    }
+  ]
+}

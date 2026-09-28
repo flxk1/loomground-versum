@@ -9,6 +9,17 @@ folder, under a ``.versum/`` directory:
     <folder>/.versum/concepts.csv        concept registry (empty until curation)
     <folder>/.versum/semantic_edges.csv  grounds/rhymes/part_of edges (empty until curation)
     <folder>/.versum/index.json          run manifest (profile, counts, skipped files)
+    <folder>/.versum/entries.csv         one entry per sentence (+ embedded sub-spans), each
+                                         with an exact span, its exact source slice as
+                                         ``text`` (uncleaned), a 5D position and a
+                                         dominant dimension (see ``versum.planes``)
+    <folder>/.versum/entry_links.csv     links between entries, each typed by one dimension
+    <folder>/.versum/entry_claims.jsonl  the plane claims behind each entry, as produced
+    <folder>/.versum/abstentions.jsonl   append-only: a norm the plane pipeline declined
+                                         to fabricate a content/action-type entry for
+                                         (reason code, e.g. ACTION_IMPLICIT — see
+                                         versum.planes.ACTION_IMPLICIT), never a
+                                         placeholder entry
 
 Domain-agnostic: all vocabulary comes from the chosen ``Profile`` and the engine
 privileges no domain. No external repo dependency, no network. Supported file types:
@@ -94,7 +105,7 @@ def _write_sources(path: Path, rows) -> None:
 
 def index_folder(folder, profile_id: str = "generic", out=None,
                  use_kg_provenance: bool = True, namespace=None,
-                 consume=None, library=None, nd_system_paths=None) -> dict:
+                 consume=None, library=None, nd_system_paths=None, planes=None) -> dict:
     """Index every supported file under ``folder``; write the ``.versum/`` index.
 
     Existing ``concepts.csv`` / ``semantic_edges.csv`` are preserved (curation output is
@@ -115,19 +126,39 @@ def index_folder(folder, profile_id: str = "generic", out=None,
         different namespaces then gets two distinct URNs.
       * ``library`` — an optional library id recorded on each source row as provenance
         linkage back to the KG registry (never a copy of the 19-column registry).
+
+    Planes (``versum.planes``): ``planes="discover"`` (what ``versum index`` passes) loads
+    the installed planes through the ``loomground.planes`` entry-point group; an explicit
+    list of descriptors is the injection seam; ``None`` (the library default, so a direct
+    call stays independent of what happens to be installed) indexes with no plane. Every
+    sentence of every source becomes an entry (independent of profile markers; the
+    marker-gated ``claims.csv`` is unchanged). Each plane's claims
+    become per-entry coordinate assignments and bindings, validated against the plane's
+    nD system. Fail closed: an invalid descriptor raises ``PlaneDescriptorError`` and an
+    invalid plane output raises ``PlaneIndexError`` before anything of the run is written.
     """
     profile = get_profile(profile_id)
     folder = Path(folder).resolve()
     out = Path(out).resolve() if out else folder / ".versum"
-    out.mkdir(parents=True, exist_ok=True)
 
     from ..nd import NDRegistry
+    from .. import planes as pl
     nd_registry = NDRegistry(include_core=True).load(nd_system_paths or [])
-    nd_dir = out / "nd"
-    nd_dir.mkdir(parents=True, exist_ok=True)
-    (nd_dir / "systems.json").write_text(
-        json.dumps(nd_registry.manifest(), ensure_ascii=False, indent=2,
-                   sort_keys=True) + "\n", encoding="utf-8")
+    if planes is None:
+        plane_adapters = []
+    elif isinstance(planes, str):
+        if planes != pl.DISCOVER:
+            raise ValueError(f"planes must be a list of descriptors or {pl.DISCOVER!r}")
+        plane_adapters = pl.discover_planes()
+    else:
+        plane_adapters = pl.load_planes(planes)
+    for plane in plane_adapters:
+        try:
+            nd_registry.register(plane.nd_system())
+        except ValueError as exc:
+            raise pl.PlaneDescriptorError(f"nD system does not register: {exc}",
+                                          plane=plane.plane_id) from exc
+    # nothing is written until every source has been indexed (fail closed)
 
     sidecars = kg.load_sidecars(folder) if use_kg_provenance else []
 
@@ -138,6 +169,12 @@ def index_folder(folder, profile_id: str = "generic", out=None,
     skipped: list[str] = []
     n_kg_reused = 0
     nd_assignments: list[dict] = []
+    entries: list[dict] = []
+    entry_links: list[dict] = []
+    entry_claims: list[dict] = []
+    abstentions: list[dict] = []
+    plane_assignments: list = []
+    plane_bindings: list = []
 
     for p in sorted(folder.rglob("*")):
         if p.is_dir():
@@ -210,15 +247,61 @@ def index_folder(folder, profile_id: str = "generic", out=None,
                         "confidence": "", "verification": "attested",
                     })
         fps[urn] = _json_safe(fp.fingerprint(urn, items, profile, nd_context=nd_context))
+        # A4: every sentence becomes an entry; spans index the unmodified source text
+        # (the decoded file for text sources, the extracted text layer for PDFs).
+        source_text = (p.read_bytes().decode("utf-8", errors="replace")
+                       if p.suffix.lower() in TEXT_EXT else res.get("text", ""))
+        source_meta = None
+        if consume is not None:
+            source_meta = consume.provenance_for(relpath=rel, filename=p.name)
+        if not source_meta and canonical:
+            side = next((s for s in sidecars if s.get("canonical_urn") == canonical), None)
+            if side is not None:
+                # The full parsed sidecar (not the legacy whitelist) reaches plane
+                # producers as context["source"], so plane-read metadata beyond the
+                # legacy keys (e.g. the topos plane's rank/level/organ/etc.) is not
+                # dropped before it ever reaches a producer.
+                source_meta = side.get("raw", side)
+        built = pl.build_source_entries(
+            source_text, urn, plane_adapters,
+            context={"source": dict(source_meta)} if source_meta else None,
+            source_id=canonical or urn)
+        entries.extend(built.entries)
+        entry_links.extend(built.links)
+        entry_claims.extend(built.claims)
+        abstentions.extend(built.abstentions)
+        plane_assignments.extend(built.assignments)
+        plane_bindings.extend(built.bindings)
 
+    claims_jsonl = "".join(json.dumps(c, ensure_ascii=False, sort_keys=True) + "\n"
+                           for c in entry_claims)
+    out.mkdir(parents=True, exist_ok=True)
+    nd_dir = out / "nd"
+    nd_dir.mkdir(parents=True, exist_ok=True)
+    (nd_dir / "systems.json").write_text(
+        json.dumps(nd_registry.manifest(), ensure_ascii=False, indent=2,
+                   sort_keys=True) + "\n", encoding="utf-8")
     g.save_claims(out / "claims.csv", all_claims, profile.id)
+    # ``text`` is the exact source slice ``source_text[span_start:span_end]`` — never
+    # cleaned — so the span invariant holds for every row; the csv writer quotes CR/LF and
+    # a csv reader returns the other control characters verbatim.
+    _write_csv(out / "entries.csv", entries, pl.ENTRY_COLUMNS)
+    _write_csv(out / "entry_links.csv", entry_links, pl.LINK_COLUMNS)
+    (out / "entry_claims.jsonl").write_text(claims_jsonl, encoding="utf-8")
+    # Append-only in spirit (never mutated mid-run, only appended to as sources are
+    # indexed): a fresh `versum index` run regenerates it deterministically, exactly as
+    # entries.csv / entry_claims.jsonl are regenerated — see the abstention record's own
+    # docstring (versum.planes.ACTION_IMPLICIT / _record_abstention).
+    abstentions_jsonl = "".join(json.dumps(a, ensure_ascii=False, sort_keys=True) + "\n"
+                                for a in abstentions)
+    (out / "abstentions.jsonl").write_text(abstentions_jsonl, encoding="utf-8")
     _write_sources(out / "sources.csv", sources)
     _write_csv(out / "definitions.csv", all_defs, DEFINITION_COLUMNS)
     (out / "fingerprints.json").write_text(
         json.dumps(fps, ensure_ascii=False, indent=2), encoding="utf-8")
     from ..nd import save_assignments, save_bindings
-    save_assignments(nd_dir / "assignments.csv", nd_assignments)
-    save_bindings(nd_dir / "bindings.csv", [])
+    save_assignments(nd_dir / "assignments.csv", nd_assignments + plane_assignments)
+    save_bindings(nd_dir / "bindings.csv", plane_bindings)
     # preserve curation output; only create if absent
     if not (out / "concepts.csv").exists():
         g.save_concepts(out / "concepts.csv", [])
@@ -233,7 +316,12 @@ def index_folder(folder, profile_id: str = "generic", out=None,
         "n_definitions": len(all_defs), "n_kg_reused": n_kg_reused,
         "n_skipped": len(skipped), "out": str(out),
         "n_nd_systems": len(nd_registry.systems),
-        "n_nd_assignments": len(nd_assignments),
+        "n_nd_assignments": len(nd_assignments) + len(plane_assignments),
+        "n_nd_bindings": len(plane_bindings),
+        "n_entries": len(entries), "n_entry_links": len(entry_links),
+        "n_abstentions": len(abstentions),
+        "planes": [{"plane": a.plane_id, "language_version": a.language_version,
+                    "system_id": a.nd_system().system_id} for a in plane_adapters],
     }
     (out / "index.json").write_text(
         json.dumps({**manifest, "skipped": skipped}, ensure_ascii=False, indent=2),

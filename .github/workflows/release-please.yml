@@ -52,6 +52,7 @@ jobs:
       # tagged Git release so the range is already satisfied before `pip install .`
       # tries to resolve it from an index.
       - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pip install -r requirements-planes.txt
       - run: python -m pip install .
       - run: python tools/supply_chain_gate.py --self-test
       - run: python tools/supply_chain_gate.py

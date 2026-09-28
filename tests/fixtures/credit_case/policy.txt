@@ -1,0 +1,1 @@
+The bank is a controller. The scoring model is part of the credit system. The controller must not make a solely automated decision on a credit application. The controller may use the score to prepare a decision. The controller knows that the training data is inaccurate. A reviewer shall examine every rejection before it is sent. The review follows the automated scoring.

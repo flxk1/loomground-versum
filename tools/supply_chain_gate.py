@@ -9,8 +9,33 @@ import json
 import re
 import sys
 import tempfile
-import tomllib
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # tomllib is stdlib from 3.11; this gate declares >=3.10
+    class _Tomllib310:
+        """Stdlib-only fallback for Python 3.10 (no tomllib yet).
+
+        Not a general TOML parser: reads exactly what this gate needs, the
+        top-level [project] table's `dependencies` array of quoted strings.
+        """
+
+        class TOMLDecodeError(ValueError):
+            pass
+
+        @staticmethod
+        def loads(text: str) -> dict:
+            section = re.search(r"(?ms)^\[project\]\s*$(.*?)(?=^\[|\Z)", text)
+            deps: list[str] = []
+            if section:
+                array = re.search(r"(?ms)^dependencies\s*=\s*\[(.*?)\]", section.group(1))
+                if array:
+                    deps = [d or s for d, s in re.findall(
+                        r'"((?:[^"\\]|\\.)*)"|\'([^\'\\]*)\'', array.group(1))]
+            return {"project": {"dependencies": deps}}
+
+    tomllib = _Tomllib310()
 
 ROOT = Path(__file__).resolve().parents[1]
 GATE_VERSION = "loomground-supply-chain-gate/2026.07.25.1"

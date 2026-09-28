@@ -7,6 +7,8 @@
     python -m versum models  <folder> <source-urn>
     python -m versum sources <folder> <concept-id>
     python -m versum export  <folder> [--format html|json|graphml] [--out PATH]
+    python -m versum coords  <store> <entry-id>
+    python -m versum cell    <store> --where system.axis=value [--where ...]
 
 `index` builds/refreshes the graph from whatever is in the folder. `capture` runs the
 deterministic guard (identity → dedup → stub+sidecar → index); idempotent, so re-running
@@ -17,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -153,6 +156,18 @@ def main(argv=None) -> int:
     pn = sub.add_parser("validate-nd", help="validate declarative user nD systems")
     pn.add_argument("configs", nargs="+")
 
+    pco = sub.add_parser(
+        "coords", help="print one entry's 5D+nD coordinate record (JSON)")
+    pco.add_argument("store", help="an indexed folder, or its .versum/ directory")
+    pco.add_argument("entry_id")
+
+    pce = sub.add_parser(
+        "cell", help="list entry ids occupying an nD coordinate cell (JSON)")
+    pce.add_argument("store", help="an indexed folder, or its .versum/ directory")
+    pce.add_argument(
+        "--where", action="append", default=[], required=True, metavar="SYSTEM.AXIS=VALUE",
+        help="nD constraint, e.g. loomground-deontic.operator=O (repeatable; ANDed)")
+
     # provenance-first product intake
     ping = sub.add_parser("ingest"); ping.add_argument("item")
     ping.add_argument("--inbox", required=True); ping.add_argument("--profile", default="generic")
@@ -184,9 +199,19 @@ def main(argv=None) -> int:
         return 0
 
     if args.cmd == "index":
-        print(json.dumps(index_folder(args.folder, args.profile, args.out,
-                                      nd_system_paths=args.nd_system),
-                         ensure_ascii=False, indent=2))
+        from .planes import PlaneError
+        try:
+            result = index_folder(args.folder, args.profile, args.out,
+                                  nd_system_paths=args.nd_system, planes="discover")
+        except PlaneError as exc:  # fail closed: nothing of the run was written
+            print(json.dumps({"status": "error", "error": "plane-contract",
+                              "plane": getattr(exc, "plane", None),
+                              "axis": getattr(exc, "axis", None),
+                              "value": getattr(exc, "value", None),
+                              "message": str(exc)}, ensure_ascii=False, default=repr),
+                  file=sys.stderr)
+            return 3
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     elif args.cmd == "capture":
         if args.consume_registry:
             from .io.consume import read_registry
@@ -286,6 +311,35 @@ def main(argv=None) -> int:
         from .nd import NDRegistry
         registry = NDRegistry(include_core=True).load(args.configs)
         print(json.dumps(registry.manifest(), ensure_ascii=False, indent=2))
+    elif args.cmd == "coords":
+        from .coordinates import VersumCoordinateError, entry_coordinates
+        try:
+            result = entry_coordinates(args.store, args.entry_id)
+        except VersumCoordinateError as exc:
+            print(json.dumps({"status": "error", "error": type(exc).__name__,
+                              "message": str(exc)}, ensure_ascii=False), file=sys.stderr)
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+    elif args.cmd == "cell":
+        from .coordinates import VersumCoordinateError, entries_in_cell
+        cell: dict = {}
+        for clause in args.where:
+            key, sep, value = clause.partition("=")
+            system_id, dot, axis_id = key.partition(".")
+            if not sep or not dot or not system_id or not axis_id:
+                ap.error(f"--where {clause!r} must be SYSTEM.AXIS=VALUE")
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                parsed = value
+            cell.setdefault(system_id, {})[axis_id] = parsed
+        try:
+            result = entries_in_cell(args.store, cell)
+        except VersumCoordinateError as exc:
+            print(json.dumps({"status": "error", "error": type(exc).__name__,
+                              "message": str(exc)}, ensure_ascii=False), file=sys.stderr)
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     elif args.cmd == "ingest":
         from .ingestion.route import producer_ingest
         print(json.dumps(producer_ingest(args.item, args.inbox, args.profile),

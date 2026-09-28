@@ -16,6 +16,8 @@ pip install .                         # installs the `versum` command
 versum index   <folder> --profile generic           # span-anchor, project 5D + nD
 versum capture <folder> --profile generic           # idempotent admission + index
 versum search  --config <live-index.json> --q "…"   # hybrid retrieval
+versum coords  <store> <entry-id>                   # one entry's 5D+nD coordinates
+versum cell    <store> --where sys.axis=value        # entries at an nD coordinate
 ```
 
 ## Interface
@@ -26,9 +28,10 @@ versum search  --config <live-index.json> --q "…"   # hybrid retrieval
 | Model-assisted reading | `versum.deepen.Deepener` (default `NullDeepener`), identity resolver, concept judge: injected adapters over bounded candidates; index, capture and curation run with zero model calls |
 | Curation | `suggest` · `confirm --min-sources N` · `canon`; confirmed decisions persist across re-index |
 | Adapters | `adapt --adapter loomground --observation …`; `versum.loomground` builds `reasoning.interop` requests |
-| Claim model | one source + exact character span per claim; predicates project onto Federation-5D; nD systems (`validate-nd`) |
+| Claim model | one source + exact character span per claim; predicates project onto 5D; nD systems (`validate-nd`). A normative (operator) claim's own `dimension` column is empty — an O/P/F operator is an *ought*, never a 5D fact, under any name — and its action type is NEVER written to `claims.csv` (`save_claims` raises `ClaimProvenanceError` for any row lacking an asserted verification + source + span): it lives only as a not-asserted entry in the entry model (`entries.csv`/`entry_claims.jsonl`), linked back by an `embeds` link and referenced by the deontic `action` nD coordinate; a norm with no extractable action span abstains (`ACTION_IMPLICIT`, `abstentions.jsonl`) instead of a placeholder entry |
+| Coordinate queries | `coords <store> <entry-id>` · `cell <store> --where sys.axis=value`; fail closed on an unknown entry/system/axis; a `jurisdiction`/`time` constraint joins onto every entry of the source it is written on (those axes sit on source URNs, never per-entry) — see [docs/coordinates.md](docs/coordinates.md) |
 
-23 subcommands: `versum --help`. Contracts: [specification](docs/reference/specification.md) · [evidence ledger](docs/reference/evidence.md) · [sink contract](docs/reference/dimensioned-subgraph-ingestion.md) · [CLI guide](docs/guides/cli.md).
+25 subcommands: `versum --help`. Contracts: [specification](docs/reference/specification.md) · [evidence ledger](docs/reference/evidence.md) · [sink contract](docs/reference/dimensioned-subgraph-ingestion.md) · [CLI guide](docs/guides/cli.md) · [coordinate queries](docs/coordinates.md) · [nD on the index](docs/nd-on-index.md) (5D is what IS; O/P/F are OUGHT and carry no 5D dimension under any name).
 
 ## Family
 Span-grounded knowledge and evidence plane; the single persistent knowledge layer; distinguishes storage, retrieval, model-assisted reading.

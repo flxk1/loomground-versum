@@ -1,5 +1,60 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **planes:** discover Loomground planes through the `loomground.planes` entry-point group
+  and read them through a lean `PlaneAdapter` protocol; descriptors are validated fail
+  closed (`versum.planes`).
+* **index:** every sentence of every source becomes an entry with an exact span, a
+  five-value 5D position and one dominant dimension (`entries.csv`, `entry_links.csv`,
+  `entry_claims.jsonl`); embedded claims get their own entries linked to their parent.
+* **index:** plane claims become per-entry nD assignments and bindings (`bindings.csv` is
+  no longer always empty), validated against each plane's nD system; an invalid value,
+  slot, axis or dimension aborts `versum index` with exit status 3 and writes nothing.
+  See `docs/architecture/planes.md`. Summary of what lands in `nd/assignments.csv` and
+  when: `docs/nd-on-index.md` (5D is what IS; O/P/F are OUGHT and carry no 5D dimension
+  under any name).
+* **coordinates:** query one entry's full coordinate record — its 5D dimension (`None`
+  for an OUGHT/norm entry, never fabricated), its nD assignments grouped by system, its
+  exact span, and its source URN — with `versum.coordinates.entry_coordinates`, and look
+  up entries occupying an nD cell with `entries_in_cell`; both fail closed (`KeyError`
+  subclasses `UnknownEntryError` / `UnknownSystemError` / `UnknownAxisError`) on an
+  unknown entry/system/axis, never a silent empty result. New CLI subcommands `versum
+  coords <store> <entry-id>` and `versum cell <store> --where sys.axis=value`. Both also
+  join a source's core `jurisdiction`/`time` nD coordinates onto every one of its entries
+  (those axes are written once per source URN, never per entry). See
+  `docs/coordinates.md`.
+
+### Fixes
+
+* **claims:** revert the `claims.csv` companion-row design (Phase 0 ontology seam): a
+  normative (operator) claim's own `dimension` column stays empty (matching
+  `Profile.federation_projections()`'s "not declared" audit verdict), but its action type
+  is no longer asserted onto a second, linked `claims.csv` row — `claims.csv`'s header and
+  `versum.store.graph.Claim` return to their pre-companion-row shape (no `embeds` /
+  `embedded_in` columns), so a marker-gated claim count is no longer silently doubled. A
+  norm's action type lives only as a not-asserted entry in the entry model
+  (`entries.csv` / `entry_claims.jsonl`), produced by the existing plane pipeline
+  (`versum.planes`) and linked from its sentence/claim entry by the structural `embeds`
+  link, referenced by the owning plane's own action nD coordinate.
+* **claims:** `versum.store.graph.save_claims` now enforces a write-boundary invariant —
+  every row must carry an asserted provenance chain (a recognised `verification` plus a
+  `source_urn` and a span) or it raises `ClaimProvenanceError` before anything is written,
+  so norm content can never reach `claims.csv` again under any shape.
+* **planes:** a norm that names a bearer but publishes no extractable action span now
+  abstains (reason code `versum.planes.ACTION_IMPLICIT`, recorded append-only in the new
+  `.versum/abstentions.jsonl`) instead of silently dropping the span or fabricating a
+  placeholder entry. `versum.planes.check_action_embeds_invariant` checks "every deontic
+  action resolves through `embeds`" over a store, exempting abstained rows.
+* **planes:** one temporary compatibility shim, `versum.planes.resolve_action_type`,
+  resolves a claim entry's action type via its `embeds` link for a reader still written
+  against the reverted `claims.csv` columns; its deletion date
+  (`versum.planes.RESOLVE_ACTION_TYPE_DELETION_DATE`, `2027-03-31`) is a module constant.
+  `versum.store.graph.load_claims` and `versum.nd.load_assignments` signatures, and
+  `nd/assignments.csv`'s columns, are unchanged.
+
 ## [0.14.0](https://github.com/flxk1/loomground-versum/compare/loomground-versum-v0.13.0...loomground-versum-v0.14.0) (2026-09-11)
 
 
