@@ -1,4 +1,4 @@
-"""Federation-5D edge dimensions and composition algebra.
+"""5D edge dimensions and composition algebra.
 
 The five string values and composition table are the cross-project interoperability
 contract.  Keep them stable.  Versum profiles map local predicates to these dimensions;

@@ -165,7 +165,7 @@ def test_normative_claim_has_empty_dimension_and_no_companion_row(tmp_path):
     for claim in normative_claims:
         assert claim["dimension"] == "", (
             f"normative claim {claim['item_id']} must carry an empty dimension, matching "
-            f"Profile.federation_projections()'s 'not_declared' audit verdict for "
+            f"Profile.projections_5d()'s 'not_declared' audit verdict for "
             f"{claim['predicate']!r}; got {claim['dimension']!r}"
         )
         assert "embeds" not in claim and "embedded_in" not in claim

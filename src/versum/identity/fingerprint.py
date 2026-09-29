@@ -97,7 +97,7 @@ def fingerprint(source_urn: str, claims, profile, nd_context=None) -> dict:
                                 profile.quantifications),
         "polarity": _hist((c.get("polarity") for c in rel), polarities),
     }
-    federation_5d = _hist((c.get("dimension") for c in rel), dimension_values())
+    dimensions_5d = _hist((c.get("dimension") for c in rel), dimension_values())
     nd = {
         "namespace": profile.namespace,
         "jurisdiction": _coord_set(nd_context, "jurisdiction"),
@@ -110,7 +110,7 @@ def fingerprint(source_urn: str, claims, profile, nd_context=None) -> dict:
         "dim5": dim5,
         # Canonical names. ``dim5`` and ``nd`` remain as compatibility projections until
         # consumers migrate; they are the profile-local claim-form histogram and context.
-        "federation_5d": federation_5d,
+        "dimensions_5d": dimensions_5d,
         "form_profile": dim5,
         "context_footprint": nd,
         "concept_footprint": [],

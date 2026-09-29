@@ -29,20 +29,20 @@ target paths, stub and sidecar paths, claim count, fingerprint, and index manife
 extraction failures emit a stable error code and non-zero process exit. Neither path performs
 network acquisition.
 
-## Federation-5D
+## 5D
 
-Federation-5D is the flat edge-reasoning algebra defined in `src/versum/dimensions.py`:
+5D is the flat edge-reasoning algebra defined in `src/versum/dimensions.py`:
 
 ```text
 structural, causal, intentional, temporal, relational
 ```
 
 The string values and 25-entry composition table are an interoperability contract. A profile
-maps every local predicate to one Federation dimension. The local predicate remains the finer
+maps every local predicate to one 5D dimension. The local predicate remains the finer
 description and is never replaced by its projection.
 
 Predicate, modality, polarity, and quantification are profile-local claim form. They are not
-additional Federation dimensions.
+additional 5D dimensions.
 
 ## nD contextual systems
 
@@ -102,9 +102,9 @@ Versum distinguishes:
 - `semantic` — candidate correspondence among concepts;
 - `composition` — typed participant roles in a larger model.
 
-Typed edges add `edge_family`, Federation `dimension`, `semantic_role`, `scope`,
+Typed edges add `edge_family`, 5D `dimension`, `semantic_role`, `scope`,
 `applicability`, `evidence_ids`, and `method_version` to the legacy edge columns. Legacy rows
-remain readable as semantic edges. Each new typed edge requires valid endpoints, a Federation
+remain readable as semantic edges. Each new typed edge requires valid endpoints, a 5D
 dimension, and the role required by its family.
 
 ## Concepts and compositions
@@ -121,19 +121,19 @@ component roles provide its semantics. Existing pair composites remain compatibl
 
 A source fingerprint has three projections:
 
-- `federation_5d` — distribution over the five universal edge dimensions;
+- `dimensions_5d` — distribution over the five universal edge dimensions;
 - `form_profile` — distribution over profile-local claim-form values;
 - `context_footprint` — attested nD coordinates;
 - `concept_footprint` — grounded concept identifiers.
 
 `dim5` and `nd` remain compatibility aliases during migration. A URN identifies the source;
-the Federation histogram is not its semantic address. Concept footprints support semantic
+the 5D histogram is not its semantic address. Concept footprints support semantic
 neighbourhood. Hybrid facet/BM25/dense retrieval remains a separate index.
 
 ## User-defined nD packages
 
 A package may declare axes, vocabularies, ontology relations, form bindings, coordinate
-sources, validation policy, examples, and tests. It may not redefine Federation-5D, contain
+sources, validation policy, examples, and tests. It may not redefine 5D, contain
 executable configuration, infer equivalence from labels, or introduce unversioned external
 ontologies. Cross-system equivalence requires an explicit versioned mapping.
 
@@ -158,16 +158,16 @@ The index records system manifests under `.versum/nd/`, coordinate assignments i
 
 An external grammar or system enters Versum only through a versioned adapter projection.
 The projection MUST preserve the source-local predicate and system identity, MUST declare
-the Federation-5D dimension of every semantic relation, and MUST attach provenance to every
+the 5D dimension of every semantic relation, and MUST attach provenance to every
 nD coordinate assignment. A structural fallback MAY represent syntax-tree containment but
 MUST NOT infer semantic dimensions or contextual coordinates from grammar productions.
 
-Adapter mappings, source grammar, source vocabulary or policy ladders, and Federation-5D
+Adapter mappings, source grammar, source vocabulary or policy ladders, and 5D
 version are identity-bearing inputs. A change to any of them MUST change the projected
 system version or adapter mapping version.
 
-- Federation values and composition remain stable.
-- Every built-in profile predicate has an explicit Federation projection.
+- 5D values and composition remain stable.
+- Every built-in profile predicate has an explicit 5D projection.
 - User axes are globally namespaced and versioned.
 - Closed vocabularies reject undeclared values.
 - External vocabularies declare ontology id and version.

@@ -13,7 +13,7 @@ given? — is only as good as the record of the second term, and this profile is
 that term gets a source.
 
 ``mandates`` and ``restricts`` project onto the **intentional** dimension, which is
-the Federation-5D axis for purpose; ``revokes`` projects onto **causal**, because
+the 5D axis for purpose; ``revokes`` projects onto **causal**, because
 revoking changes a position rather than describing one.
 
 Nothing here reasons. The profile supplies vocabulary and surface cues; whether a
@@ -79,7 +79,7 @@ QUANT_CUES = (
     ("existential", ("at least one", "at least")),
 )
 
-# Local predicate -> universal Federation-5D edge dimension. Purpose is intentional;
+# Local predicate -> universal 5D edge dimension. Purpose is intentional;
 # a revocation acts on a position, so it is causal; the rest relate parties.
 PREDICATE_DIMENSIONS = {
     "mandates": "intentional",

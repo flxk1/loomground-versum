@@ -34,7 +34,7 @@
       "item_id": "item-01b5bd30d6",
       "source_sentence": "The controller must not make a solely automated decision on a credit application.",
       "predicate": "prohibits",
-      "rationale": "The normative (operator) claim's own row: verification='candidate' (asserted vocabulary), source_urn + span present, dimension empty (matches Profile.federation_projections()'s 'not_declared' verdict for an unmapped predicate). Legitimate; unchanged by the revert."
+      "rationale": "The normative (operator) claim's own row: verification='candidate' (asserted vocabulary), source_urn + span present, dimension empty (matches Profile.projections_5d()'s 'not_declared' verdict for an unmapped predicate). Legitimate; unchanged by the revert."
     },
     {
       "item_id": "item-97b545ba47",

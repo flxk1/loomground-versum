@@ -176,8 +176,8 @@ Round 4: Round 4 had already stopped reading the deontic plane's per-operator bi
 for those three predicates ("imposes"/"permits"/"prohibits"); Round 5 removes even that —
 a table entry, even one that names the relational floor, is still a predicate →
 dimension MAPPING for a normative predicate, which is exactly what "no operator carries a
-dimension under any name" rules out. `Profile.federation_projections()` (the audit
-surface) reports every such predicate `federation_dimension: None`,
+dimension under any name" rules out. `Profile.projections_5d()` (the audit
+surface) reports every such predicate `dimension_5d: None`,
 `verification: "not_declared"` — it never leaks `dimension_for`'s own framework-level
 fallback back out as if the profile had declared a mapping.
 
@@ -195,7 +195,7 @@ from the other.
 predicate is in `Profile.unmapped_predicates()` (the normative operators, on any profile
 that leaves any predicate unmapped — today only `law-eu`), the claim's own `dimension`
 column is **empty** (`""`), never a fabricated floor value — matching
-`federation_projections()`'s "not declared" exactly. It removes the companion row and the
+`projections_5d()`'s "not declared" exactly. It removes the companion row and the
 `embeds`/`embedded_in` columns entirely: `claims.csv`'s header is exactly what it was
 before Round 6, and `versum.store.graph.Claim` no longer declares those two fields. A
 normative claim's action type is **never written to `claims.csv` at all**, under any

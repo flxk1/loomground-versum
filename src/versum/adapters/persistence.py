@@ -27,7 +27,7 @@ def save_projection(path, projection: GraphProjection) -> Path:
         json.dumps([{
             "id": system.system_id, "namespace": system.namespace,
             "version": system.version,
-            "federation_5d_version": system.federation_5d_version,
+            "version_5d": system.version_5d,
             "axes": sorted(system.qualified_axis(axis) for axis in system.axes),
         } for system in projection.nd_systems], ensure_ascii=False, indent=2, sort_keys=True),
         encoding="utf-8")

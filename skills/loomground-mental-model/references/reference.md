@@ -23,7 +23,7 @@ report. It does not re-implement the engine.
 | **COMPOSE / MATCH** | cluster atoms into typed concepts and match against the existing canon | `versum suggest <folder>` → `versum confirm <folder>` |
 | **CANON / DEEPEN** | converge new concepts into the bounded domain canon; optional model deepening for a fuller entity twin | `versum canon-domain <folder>` |
 | **QUERY** | which mental models a source supports, which sources ground a model, hybrid retrieval | `versum models <folder> <urn>` · `versum sources <folder> <concept_id>` · `versum search --config <c> --q "…"` |
-| **PROJECT** | project the ConceptGraph onto the Federation-5D edge algebra and into an output modality | engine projection (`adapt` / materialize / morph) |
+| **PROJECT** | project the ConceptGraph onto the 5D edge algebra and into an output modality | engine projection (`adapt` / materialize / morph) |
 | **PERSIST / REGISTER** | write the model + provenance into the graph | hand off to `loomground-knowledge-write` (never a direct write here) |
 
 **Intent-driven projection (the Translator role).** Detect what the user actually asked —
@@ -71,7 +71,7 @@ The projection is a **regenerable view** of the model, never a new source of tru
 - **Domain-neutral.** Vocabulary comes from the profile, never hard-coded in this skill.
 - **Local-first, no in-session fetching.** Prefer the local model; never pull a binary over
   the network mid-session.
-- **Honest status.** Federation-5D projection, semantic projection, and hybrid retrieval are
+- **Honest status.** 5D projection, semantic projection, and hybrid retrieval are
   operational; concept normalization, typed-pair compositions, and model deepening are
   experimental; richer render grammars (full multi-format output) are designed, not done —
   do not claim an output format the engine cannot yet produce.

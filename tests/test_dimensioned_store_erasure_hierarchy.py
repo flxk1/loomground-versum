@@ -57,7 +57,7 @@ def _envelope(*, idempotency_key, source_id, nodes):
             "content_digest": digest("quotation:" + source_id),
         }],
         "nd": {
-            "facet": "5D", "system_id": "system:federation-5d",
+            "facet": "5D", "system_id": "system:5d",
             "dimension_count": 1, "axes": ["causal"],
         },
         "nodes": nodes,

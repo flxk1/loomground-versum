@@ -349,7 +349,7 @@ def check_edge_contracts(edges) -> list[str]:
         try:
             Dimension(e.get("dimension") or "relational")
         except ValueError:
-            out.append(f"edge {eid}: invalid Federation dimension {e.get('dimension')!r}")
+            out.append(f"edge {eid}: invalid 5D dimension {e.get('dimension')!r}")
         if family in role_required and not e.get("semantic_role"):
             out.append(f"edge {eid}: {family} edge requires semantic_role")
         if not e.get("src_id") or not e.get("dst_id"):

@@ -17,7 +17,7 @@ from __future__ import annotations
 import versum.profiles  # noqa: F401 — importing registers the built-in profiles
 from versum.profile import PROFILES, get_profile
 
-FEDERATION_5D = {"structural", "causal", "intentional", "temporal", "relational"}
+DIMENSIONS_5D = {"structural", "causal", "intentional", "temporal", "relational"}
 
 
 def _p():
@@ -31,10 +31,10 @@ def test_profile_registers_like_any_other():
     assert "delegation" in PROFILES
 
 
-def test_every_predicate_projects_onto_a_federation_axis():
+def test_every_predicate_projects_onto_a_5d_axis():
     p = _p()
     assert set(p.predicate_dimensions) == p.predicates, "predicate/dimension mismatch"
-    assert set(p.predicate_dimensions.values()) <= FEDERATION_5D
+    assert set(p.predicate_dimensions.values()) <= DIMENSIONS_5D
 
 
 def test_vocabulary_is_closed():
@@ -57,7 +57,7 @@ def test_declares_no_identifier_scheme():
 # --- purpose is intentional, revocation is causal ------------------------------
 
 def test_purpose_predicates_are_intentional():
-    # Federation-5D has an intentional axis; purpose is what it is for.
+    # 5D has an intentional axis; purpose is what it is for.
     dims = _p().predicate_dimensions
     assert dims["mandates"] == "intentional"
     assert dims["restricts"] == "intentional"

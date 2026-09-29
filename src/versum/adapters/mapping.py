@@ -1,4 +1,4 @@
-"""Declarative mappings from system-local relations to Federation-5D."""
+"""Declarative mappings from system-local relations to the 5D dimensions."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,4 +44,4 @@ class SemanticMapping:
         try:
             return self.relations[predicate]
         except KeyError as exc:
-            raise ValueError(f"no Federation-5D mapping for relation {predicate!r}") from exc
+            raise ValueError(f"no 5D mapping for relation {predicate!r}") from exc

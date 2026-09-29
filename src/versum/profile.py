@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from ._deprecation import warn_renamed
 from .dimensions import DEFAULT_DIMENSION, Dimension
 
 
@@ -45,7 +46,7 @@ class Profile:
     # order against the filename/metadata; the first whose ``group(1)`` matches yields
     # ``urn:<namespace>:<scheme>:<id>``. Empty ⇒ the guard falls straight to the path-slug.
     source_identifiers: tuple = ()
-    # Profile-local predicate -> universal Federation-5D edge dimension.  Local predicates
+    # Profile-local predicate -> universal 5D edge dimension.  Local predicates
     # retain their finer meaning; this projection is the cross-profile comparison seam.
     predicate_dimensions: dict = field(default_factory=dict)
 
@@ -58,11 +59,11 @@ class Profile:
                 Dimension(dimension)
             except ValueError as exc:
                 raise ValueError(
-                    f"predicate {predicate!r} maps to unknown Federation dimension "
+                    f"predicate {predicate!r} maps to unknown 5D dimension "
                     f"{dimension!r}") from exc
 
     def dimension_for(self, predicate: str) -> str:
-        """Project a local predicate onto Federation-5D.
+        """Project a local predicate onto the 5D dimensions.
 
         Unmapped values use the relational safe floor while remaining visibly unmapped via
         :meth:`unmapped_predicates`; callers never lose the original local predicate.
@@ -73,16 +74,16 @@ class Profile:
     def unmapped_predicates(self) -> frozenset:
         return frozenset(set(self.predicates) - set(self.predicate_dimensions))
 
-    def federation_projections(self) -> list[dict]:
+    def projections_5d(self) -> list[dict]:
         """Versioned, inspectable local-predicate projections for manifests and audits.
 
         A predicate the profile actually maps (present in ``predicate_dimensions``) is
-        reported with its declared cross-profile 5D dimension (the ``federation_dimension``
+        reported with its declared cross-profile 5D dimension (the ``dimension_5d``
         field) and ``verification: "profile-declared"``. A predicate the profile leaves
         unmapped — every normative O/P/F predicate, per Round 5 (see
         ``profiles/law_eu.py``): an operator is an OUGHT and carries no 5D dimension, so
         none is declared for it — is reported as **not declared**:
-        ``federation_dimension: None``, ``verification: "not_declared"``. This must NOT
+        ``dimension_5d: None``, ``verification: "not_declared"``. This must NOT
         surface :meth:`dimension_for`'s relational-floor fallback as if it were a
         declaration; that fallback exists for callers (e.g. the extraction pipeline) that
         still need a concrete placeholder value, not for an audit whose job is to say what
@@ -93,13 +94,18 @@ class Profile:
             "profile_id": self.id,
             "profile_version": self.catalogue_version,
             "local_predicate": predicate,
-            "federation_dimension": (
+            "dimension_5d": (
                 None if predicate in unmapped else self.dimension_for(predicate)
             ),
             "mapping_relation": "narrower_than",
             "mapping_version": self.catalogue_version,
             "verification": "not_declared" if predicate in unmapped else "profile-declared",
         } for predicate in sorted(self.predicates)]
+
+    def federation_projections(self) -> list[dict]:
+        """Deprecated alias for :meth:`projections_5d`. Emits ``DeprecationWarning``."""
+        warn_renamed("Profile.federation_projections()", "Profile.projections_5d()")
+        return self.projections_5d()
 
     def is_valid(self, axis: str, value: str) -> bool:
         """True iff ``value`` is a member of the closed set for ``axis``.

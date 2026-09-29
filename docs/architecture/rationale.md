@@ -21,7 +21,7 @@ layer sets, and their output is verified before it is stored. Most work needs no
 
 ## Capability status
 
-- **Operational:** provenance reuse, deterministic identity, span claims, Federation-5D
+- **Operational:** provenance reuse, deterministic identity, span claims, 5D
   projection, profile-local claim form, typed nD systems and assignments, concepts,
   many-to-many grounding, universal system adapters, Loomground semantic projection,
   hybrid retrieval, and incremental sync.
@@ -35,7 +35,7 @@ layer sets, and their output is verified before it is stored. Most work needs no
 
 The graph begins with a **provenance spine** of canonical sources and versions. The **claim
 layer** binds each typed assertion to one source and exact character offsets. Claims retain
-their profile-local form and project their predicate onto the flat Federation-5D edge algebra.
+their profile-local form and project their predicate onto the flat 5D edge algebra.
 Their typed nD assignments record contextual scope. Provenance and claims never silently
 move or merge.
 
@@ -83,7 +83,7 @@ Vocabularies live in profiles (`generic` by default; add your own), gold sets an
 are external user data, and any domain label a concept carries is applied by a universal
 rule, never baked into the core. A test guards the core against domain leakage.
 
-*Flat Federation-5D, extensible nD.* Every local predicate projects onto one of five stable
+*Flat 5D, extensible nD.* Every local predicate projects onto one of five stable
 edge-reasoning dimensions: structural, causal, intentional, temporal, or relational. Local
 predicates retain their finer meaning. Context lives in typed, namespaced and versioned nD
 systems; users can add a narrow mathematical, scientific, or other contextual system through

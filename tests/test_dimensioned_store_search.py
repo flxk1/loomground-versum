@@ -49,7 +49,7 @@ def _envelope():
         }],
         "nd": {
             "facet": "5D",
-            "system_id": "system:federation-5d",
+            "system_id": "system:5d",
             "dimension_count": 1,
             "axes": ["causal"],
         },

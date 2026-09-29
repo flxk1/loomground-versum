@@ -21,7 +21,7 @@ def test_edge_contract_rejects_family_type_and_dimension_mismatch():
     row["dimension"] = "imaginary"
     errors = graph.check_edge_contracts([row])
     assert any("invalid for binding" in e for e in errors)
-    assert any("invalid Federation dimension" in e for e in errors)
+    assert any("invalid 5D dimension" in e for e in errors)
 
 
 def test_legacy_edge_remains_readable():

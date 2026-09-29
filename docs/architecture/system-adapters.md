@@ -9,7 +9,7 @@ semantic adapter, but the protocol does not name or privilege it.
 An adapter preserves three layers:
 
 1. the source system's local nodes, predicates, vocabularies, and version;
-2. an explicit projection of every relation onto Federation-5D;
+2. an explicit projection of every relation onto the 5D dimensions;
 3. versioned nD systems, coordinate assignments, and claim-slot bindings.
 
 A grammar describes syntax, not semantics. The generic structural fallback may project an
@@ -26,7 +26,7 @@ canonical observation produced by any conforming implementation.
 
 Every `GraphProjection` carries:
 
-- adapter, system, grammar, mapping, and Federation-5D versions;
+- adapter, system, grammar, mapping, and 5D versions;
 - typed system nodes;
 - relations retaining the local predicate and universal 5D dimension;
 - nD systems and provenance-bearing coordinate assignments;
@@ -43,7 +43,7 @@ card, EBNF, schemas, and vocabularies from `loomground-governance`. It generates
 policy-sensitive `loomground-governance` nD system and projects canonical Loomground
 observations as follows:
 
-| Loomground construct | Graph-Versum representation | Federation-5D |
+| Loomground construct | Graph-Versum representation | 5D |
 |---|---|---|
 | actor, human, gate, master | typed node plus `node_class` coordinate | structural |
 | authority cord | `authority` system relation | intentional |
