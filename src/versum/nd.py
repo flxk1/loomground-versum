@@ -325,6 +325,20 @@ class NDSystem:
         return Truth.UNKNOWN
 
 
+
+_ndsystem_init = NDSystem.__init__
+
+
+def _ndsystem_init_accepting_old_kwarg(self, *args, federation_5d_version=None, **kwargs):
+    """Accept the pre-rename keyword ``federation_5d_version`` for one release."""
+    if federation_5d_version is not None:
+        warn_renamed("NDSystem(federation_5d_version=...)", "NDSystem(version_5d=...)")
+        kwargs.setdefault("version_5d", federation_5d_version)
+    _ndsystem_init(self, *args, **kwargs)
+
+
+NDSystem.__init__ = _ndsystem_init_accepting_old_kwarg  # type: ignore[method-assign]
+
 _CORE_SYSTEM = {
     "id": "versum-context",
     "namespace": "versum.context",

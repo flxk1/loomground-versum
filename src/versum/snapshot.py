@@ -30,6 +30,8 @@ import hashlib
 import json
 from pathlib import Path
 
+from .identity.fingerprint import upgrade_fingerprint
+
 GRAPH_VERSION_FILE = "_graph_version.json"
 ND_SYSTEMS_FILE = "_nd_systems.json"
 INPUTS_ID = "materialized-graph/v2"
@@ -76,7 +78,8 @@ def mint_graph_version(kg_root) -> str:
             except Exception:
                 fps = {}
             for urn, fp in fps.items():
-                fingerprints[urn] = {k: v for k, v in (fp or {}).items()
+                fp = upgrade_fingerprint(fp or {})
+                fingerprints[urn] = {k: v for k, v in fp.items()
                                      if k not in _ARRANGEMENT_KEYS}
 
     nd_manifest = None

@@ -22,6 +22,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 from xml.dom import minidom
 
+from .identity.fingerprint import upgrade_fingerprint_store
 from .store import graph as g
 
 SCHEMA_VERSION = "versum_graph/v1"
@@ -62,7 +63,8 @@ def build_payload(folder) -> dict:
     fp_path = v / "fingerprints.json"
     if fp_path.exists():
         try:
-            fingerprints = json.loads(fp_path.read_text(encoding="utf-8"))
+            fingerprints = upgrade_fingerprint_store(
+                json.loads(fp_path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError):
             fingerprints = {}
     manifest = {}

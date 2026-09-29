@@ -107,3 +107,35 @@ def test_fingerprint_uses_dimensions_5d_key_only():
     fp = fingerprint("urn:test:1", [], profile)
     assert "dimensions_5d" in fp
     assert "federation_5d" not in fp
+
+
+def test_old_fingerprint_key_is_read_under_its_new_name():
+    from versum.identity.fingerprint import upgrade_fingerprint, upgrade_fingerprint_store
+
+    old = {"federation_5d": {"causal": 2}, "form_profile": {}}
+    assert upgrade_fingerprint(old) == {"dimensions_5d": {"causal": 2}, "form_profile": {}}
+    both = {"federation_5d": {"causal": 1}, "dimensions_5d": {"causal": 9}}
+    assert upgrade_fingerprint(both) == {"dimensions_5d": {"causal": 9}}
+    assert upgrade_fingerprint_store({"urn:a": old})["urn:a"]["dimensions_5d"] == {"causal": 2}
+
+
+def test_graph_version_is_the_same_for_an_old_key_fingerprints_store(tmp_path):
+    from versum.snapshot import mint_graph_version
+    from versum.sync import BY_DOMAIN
+
+    domain = tmp_path / BY_DOMAIN / "law"
+    domain.mkdir(parents=True)
+    (domain / "claims.csv").write_text("claim_id,text\nc1,x\n", encoding="utf-8")
+    store = domain / "fingerprints.json"
+    store.write_text(json.dumps({"urn:a": {"dimensions_5d": {"causal": 1}}}), encoding="utf-8")
+    current = mint_graph_version(tmp_path)
+    store.write_text(json.dumps({"urn:a": {"federation_5d": {"causal": 1}}}), encoding="utf-8")
+    assert mint_graph_version(tmp_path) == current
+
+
+def test_ndsystem_accepts_the_old_keyword_with_a_warning():
+    kwargs = dict(system_id="system:x", namespace="x", version="1", axes={})
+    with pytest.deprecated_call():
+        old = NDSystem(federation_5d_version="2", **kwargs)
+    assert old.version_5d == "2"
+    assert NDSystem(version_5d="2", **kwargs) == old

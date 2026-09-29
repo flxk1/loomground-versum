@@ -62,7 +62,7 @@ A 2026-07-18 corpus audit found:
 - concept suggestion is suitable for ranked suggestion, not automatic shelving;
 - morphological duplication and the hapax tail remain major quality work.
 
-These findings motivate the separate 5D form profile, context footprint, concept
+These findings motivate the separate form profile, context footprint, concept
 footprint, and retrieval index in the normative specification.
 
 ## Current limitations
