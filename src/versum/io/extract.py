@@ -348,7 +348,7 @@ def candidate_items(unit: dict, source_urn: str, profile) -> list[dict]:
             # ``predicate_dimensions`` on purpose, per Round 5 — names no bearer/action
             # content of its own at this bare-marker layer, so the claim itself gets NO
             # cross-profile 5D dimension (empty, not a fabricated floor value): this is what
-            # keeps claims.csv agreeing with ``Profile.federation_projections()``'s "not
+            # keeps claims.csv agreeing with ``Profile.projections_5d()``'s "not
             # declared" audit verdict for the same predicate. What the operator's content
             # *would* read as on the 5D manifold is NEVER asserted here, as a claim of any
             # shape (Phase 0 ontology seam, see ``docs/architecture/planes.md``): a norm's

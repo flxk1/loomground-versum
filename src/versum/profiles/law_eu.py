@@ -143,8 +143,8 @@ QUANT_CUES = (
 # What such a claim carries instead is not asserted here, in this table, at all: a
 # normative predicate is simply left OUT of this table, so ``Profile.unmapped_predicates()``
 # reports it as visibly unmapped (see ``tests/test_dimensions.py``) and
-# ``Profile.federation_projections()`` (the audit) says exactly that —
-# ``federation_dimension: None``, ``verification: "not_declared"`` — rather than this
+# ``Profile.projections_5d()`` (the audit) says exactly that —
+# ``dimension_5d: None``, ``verification: "not_declared"`` — rather than this
 # profile asserting a mapping (even a floor one) that does not exist.
 #
 # ``versum.io.extract.candidate_items`` makes the *emitted* claims.csv row agree with that

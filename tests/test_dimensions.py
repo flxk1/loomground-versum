@@ -3,7 +3,7 @@ from versum.profile import get_profile
 import versum.profiles  # noqa: F401
 
 
-def test_federation_values_and_algebra_are_stable():
+def test_5d_values_and_algebra_are_stable():
     assert dimension_values() == {
         "structural", "causal", "intentional", "temporal", "relational"}
     assert len(COMPOSITION_TABLE) == 25
@@ -11,7 +11,7 @@ def test_federation_values_and_algebra_are_stable():
     assert compose("relational", "structural") == Dimension.STRUCTURAL
 
 
-def test_all_built_in_profile_predicates_project_to_federation():
+def test_all_built_in_profile_predicates_project_to_5d():
     # law-eu is the one profile with predicates deliberately left unmapped (Round 5): its
     # four normative predicates ("grants", "imposes", "permits", "prohibits" — each an
     # operator O/P/F or a Hohfeldian right/duty) carry no 5D dimension, so they carry no

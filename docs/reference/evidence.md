@@ -21,8 +21,8 @@ distribution build and the installed-wheel smoke.
 
 New coherence-contract coverage verifies:
 
-- the five Federation enum values and complete 25-entry composition algebra;
-- total Federation predicate projections for all four built-in profiles;
+- the five 5D enum values and complete 25-entry composition algebra;
+- total 5D predicate projections for all four built-in profiles;
 - preservation of local predicates beside universal dimensions;
 - loading, validation, namespacing, and coexistence of user nD systems;
 - consumption and fingerprinting of the authoritative Loomground grammar in nD manifests;
@@ -62,7 +62,7 @@ A 2026-07-18 corpus audit found:
 - concept suggestion is suitable for ranked suggestion, not automatic shelving;
 - morphological duplication and the hapax tail remain major quality work.
 
-These findings motivate the separate Federation form profile, context footprint, concept
+These findings motivate the separate form profile, context footprint, concept
 footprint, and retrieval index in the normative specification.
 
 ## Current limitations

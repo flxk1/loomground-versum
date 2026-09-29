@@ -21,13 +21,13 @@ def test_structural_fallback_never_invents_non_structural_semantics():
     assert not projection.bindings
 
 
-def test_semantic_mapping_requires_explicit_federation_dimension():
+def test_semantic_mapping_requires_explicit_5d_dimension():
     mapping = SemanticMapping.from_dict({
         "id": "sample", "version": "1",
         "relations": {"flows": {"dimension": "causal"}},
     })
     assert mapping.relation("flows").dimension == "causal"
-    with pytest.raises(ValueError, match="no Federation-5D mapping"):
+    with pytest.raises(ValueError, match="no 5D mapping"):
         mapping.relation("unknown")
     with pytest.raises(ValueError):
         SemanticMapping.from_dict({
@@ -69,7 +69,7 @@ def test_adapter_registry_selection_has_no_vendor_name_special_casing():
     """
     registry = AdapterRegistry()
     loomground_like = _Adapter(SystemIdentity(
-        "loomground-governance", "1", "c" * 64, "loomground-federation-5d", "1"))
+        "loomground-governance", "1", "c" * 64, "loomground-5d", "1"))
     other = _Adapter(SystemIdentity(
         "acme-widgets", "1", "d" * 64, "acme-adapter", "1"))
 
@@ -81,7 +81,7 @@ def test_adapter_registry_selection_has_no_vendor_name_special_casing():
     assert registry.for_system("acme-widgets") is other
     assert registry.for_system("loomground-governance") is loomground_like
     assert registry.for_adapter("acme-adapter") is other
-    assert registry.for_adapter("loomground-federation-5d") is loomground_like
+    assert registry.for_adapter("loomground-5d") is loomground_like
 
     # Collision detection applies uniformly: a non-Loomground adapter colliding
     # on id is rejected exactly like a Loomground one would be.

@@ -45,7 +45,7 @@ versum adapt --adapter loomground --observation observation.json \
 ```
 
 The projection preserves Loomground's local predicates while mapping relations explicitly
-onto Federation-5D and materializing its policy context as versioned nD coordinates. See
+onto the 5D dimensions and materializing its policy context as versioned nD coordinates. See
 [Universal language and system adapters](../architecture/system-adapters.md).
 
 `sync`, `seed-state`, `search`, `canon`, and `watch --config` share one Live Index config

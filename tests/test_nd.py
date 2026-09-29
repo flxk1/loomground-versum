@@ -13,7 +13,7 @@ SYSTEM = {
         "id": "constrained-optimization",
         "namespace": "math.optimization",
         "version": "1.0.0",
-        "federation_5d_version": "1",
+        "version_5d": "1",
         "axes": {
             "variable_space": {
                 "value_type": "controlled_identifier", "cardinality": "one",

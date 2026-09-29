@@ -37,7 +37,7 @@ from pathlib import Path
 
 from .io import consume
 from . import profiles as _profiles  # noqa: F401 — registers built-in profiles
-from .identity.fingerprint import fingerprint
+from .identity.fingerprint import fingerprint, upgrade_fingerprint_store
 from .store import kg
 from .store.graph import flatten_claim
 from .identity.core import deterministic_identity
@@ -309,7 +309,7 @@ def _load_fingerprint_store(fp_path: Path, domain: str) -> dict:
             f"(found {type(data).__name__}); preserved it as {kept.name} and "
             f"aborted this source's write to avoid destroying existing data"
         )
-    return data
+    return upgrade_fingerprint_store(data)
 
 
 def _write_rows(path: Path, columns, rows) -> None:

@@ -3,7 +3,7 @@
     "id": "meaningful-human-control",
     "namespace": "oversight.mhc",
     "version": "1.0.0",
-    "federation_5d_version": "1",
+    "version_5d": "1",
     "describes": "The constituents of meaningful human control over an automated decision, as a typed contextual coordinate system. Oversight is commonly decomposed into observability, intervenability, comprehensibility, authority and timeliness, and the decomposition matters because oversight can be formally present while one constituent is at its lowest level — which makes it functionally absent. Each axis is ordered ascending (its vocabulary runs from least to most), so `precedes` compares two claims on the same axis. This engine stores coordinates and compares them; it computes no aggregate and renders no verdict on whether control was meaningful.",
     "axes": {
       "observability": {

@@ -32,7 +32,7 @@ a special case.
 
 *Candidate shape.* No new layer. A mandate is an ordinary span claim in the
 existing claim form, retaining its profile-local predicate and projecting onto
-the flat Federation-5D algebra like any other. What makes it a mandate is the
+the flat 5D algebra like any other. What makes it a mandate is the
 profile that supplies the vocabulary, not a privilege in the engine.
 
 *Why this belongs here.* The alternative — a purpose held in a runtime's own

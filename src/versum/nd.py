@@ -14,6 +14,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, cast
 
+from ._deprecation import warn_renamed
 from .loomground import language_info
 
 
@@ -224,7 +225,7 @@ class NDSystem:
     system_id: str
     namespace: str
     version: str
-    federation_5d_version: str
+    version_5d: str
     axes: dict[str, AxisSpec]
     bindings: tuple[BindingRule, ...] = ()
     ontology_relations: tuple[dict, ...] = ()
@@ -232,17 +233,27 @@ class NDSystem:
     missing_coordinates: str = "preserve_unknown"
     provenance_required: bool = True
 
+    @property
+    def federation_5d_version(self) -> str:
+        """Deprecated alias for :attr:`version_5d`. Emits ``DeprecationWarning``."""
+        warn_renamed("NDSystem.federation_5d_version", "NDSystem.version_5d")
+        return self.version_5d
+
     @classmethod
     def from_dict(cls, raw: dict) -> "NDSystem":
         root = raw.get("nd_system", raw)
         axes = {str(k): AxisSpec.from_dict(str(k), v or {})
                 for k, v in (root.get("axes") or {}).items()}
         validation = root.get("validation") or {}
+        # New key wins if both are present; the old key is still accepted for one release.
+        version_5d = root.get("version_5d")
+        if version_5d is None:
+            version_5d = root.get("federation_5d_version", "1")
         return cls(
             system_id=str(root.get("id", "")),
             namespace=str(root.get("namespace", "")),
             version=str(root.get("version", "")),
-            federation_5d_version=str(root.get("federation_5d_version", "1")),
+            version_5d=str(version_5d),
             axes=axes,
             bindings=tuple(BindingRule.from_dict(x) for x in root.get("bindings", ())),
             ontology_relations=tuple(root.get("ontology_relations", ())),
@@ -314,11 +325,25 @@ class NDSystem:
         return Truth.UNKNOWN
 
 
+
+_ndsystem_init = NDSystem.__init__
+
+
+def _ndsystem_init_accepting_old_kwarg(self, *args, federation_5d_version=None, **kwargs):
+    """Accept the pre-rename keyword ``federation_5d_version`` for one release."""
+    if federation_5d_version is not None:
+        warn_renamed("NDSystem(federation_5d_version=...)", "NDSystem(version_5d=...)")
+        kwargs.setdefault("version_5d", federation_5d_version)
+    _ndsystem_init(self, *args, **kwargs)
+
+
+NDSystem.__init__ = _ndsystem_init_accepting_old_kwarg  # type: ignore[method-assign]
+
 _CORE_SYSTEM = {
     "id": "versum-context",
     "namespace": "versum.context",
     "version": "1",
-    "federation_5d_version": "1",
+    "version_5d": "1",
     "axes": {
         "jurisdiction": {"value_type": "controlled_identifier", "vocabulary_mode": "open",
                          "primitives": ["equal", "contains", "overlaps", "disjoint"]},
@@ -466,7 +491,7 @@ class NDRegistry:
             "grammar": language_info(),
             "systems": [
                 {"id": s.system_id, "namespace": s.namespace, "version": s.version,
-                 "federation_5d_version": s.federation_5d_version,
+                 "version_5d": s.version_5d,
                  "axes": sorted(s.qualified_axis(a) for a in s.axes)}
                 for s in sorted(self.systems.values(),
                                 key=lambda x: (x.system_id, x.version))

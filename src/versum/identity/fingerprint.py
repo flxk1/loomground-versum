@@ -97,7 +97,7 @@ def fingerprint(source_urn: str, claims, profile, nd_context=None) -> dict:
                                 profile.quantifications),
         "polarity": _hist((c.get("polarity") for c in rel), polarities),
     }
-    federation_5d = _hist((c.get("dimension") for c in rel), dimension_values())
+    dimensions_5d = _hist((c.get("dimension") for c in rel), dimension_values())
     nd = {
         "namespace": profile.namespace,
         "jurisdiction": _coord_set(nd_context, "jurisdiction"),
@@ -110,9 +110,38 @@ def fingerprint(source_urn: str, claims, profile, nd_context=None) -> dict:
         "dim5": dim5,
         # Canonical names. ``dim5`` and ``nd`` remain as compatibility projections until
         # consumers migrate; they are the profile-local claim-form histogram and context.
-        "federation_5d": federation_5d,
+        "dimensions_5d": dimensions_5d,
         "form_profile": dim5,
         "context_footprint": nd,
         "concept_footprint": [],
         "nd": nd,
     }
+
+
+# Key renamed in this release; stores written before it still carry the old key.
+_RENAMED_KEYS = {"federation_5d": "dimensions_5d"}
+
+
+def upgrade_fingerprint(fp):
+    """Return ``fp`` with renamed keys under their current names.
+
+    A fingerprint read from an older ``fingerprints.json`` may carry a key under its
+    previous name; the current name wins when both are present. Non-dict values pass
+    through unchanged.
+    """
+    if not isinstance(fp, dict):
+        return fp
+    out = dict(fp)
+    for old, new in _RENAMED_KEYS.items():
+        if old in out:
+            value = out.pop(old)
+            out.setdefault(new, value)
+    return out
+
+
+def upgrade_fingerprint_store(store):
+    """Apply :func:`upgrade_fingerprint` to every value of a ``{urn: fingerprint}`` store."""
+    if not isinstance(store, dict):
+        return store
+    return {urn: upgrade_fingerprint(fp) for urn, fp in store.items()}
+

@@ -3,7 +3,7 @@
     "id": "palladium-coupling",
     "namespace": "chemistry.pd-coupling",
     "version": "1.0.0",
-    "federation_5d_version": "1",
+    "version_5d": "1",
     "axes": {
       "reaction_family": {
         "value_type": "controlled_identifier",

@@ -3,7 +3,7 @@
 > **Historical status note (2026-07-19):** the domain-general decision remains accepted,
 > but its 5D description and action-item status are superseded by
 > `docs/reference/specification.md`, which is the normative source for current
-> implementation status. Federation-5D is the five-value edge algebra; profile claim-form
+> implementation status. 5D is the five-value edge algebra; profile claim-form
 > vocabularies project into it.
 
 **Status:** Proposed

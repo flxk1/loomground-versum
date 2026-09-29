@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Changed
+
+* **naming:** renamed every "federation"/"Federation-5D" identifier and prose mention to a
+  neutral 5D name; deprecated aliases are kept for one release, each warning with
+  `DeprecationWarning` and returning/accepting the identical value: `Profile.federation_projections()`
+  now delegates to `Profile.projections_5d()`; `NDSystem.federation_5d_version` is a
+  deprecated read property for the renamed `version_5d` field (the JSON key
+  `federation_5d_version` is still accepted on load — `version_5d` wins if both are
+  present); the audit output key `federation_dimension` is now emitted as `dimension_5d`
+  (new key only); the fingerprint key `federation_5d` is now emitted as `dimensions_5d`
+  (new key only). Fixture/example system ids `system:federation-5d` and
+  `loomground-federation-5d` are renamed to `system:5d` and `loomground-5d`.
+
 ### Features
 
 * **planes:** discover Loomground planes through the `loomground.planes` entry-point group
